@@ -1,0 +1,104 @@
+[
+    {
+      "snippet": {
+        "title": "Birds in Flight: Majestic Eagles",
+        "description": "Stunning footage of bald eagles soaring through the sky. Witness their power and grace in this breathtaking video.",
+        "tags": [
+          "eagle",
+          "bird",
+          "flying",
+          "wildlife",
+          "nature",
+          "birds of prey"
+        ],
+        "categoryId": "22"
+      },
+      "status": {
+        "privacyStatus": "private",
+        "madeForKids": true
+      },
+      "ImageUrl": "kenjicladia@gmail.com/Birds in Flight: Majestic Eagles.jpg"
+    },
+    {
+      "snippet": {
+        "title": "Baby Birds in the Nest",
+        "description": "Adorable baby robins chirping and waiting for their parents to feed them. A heartwarming glimpse into the life of a bird family.",
+        "tags": [
+          "robin",
+          "baby bird",
+          "nest",
+          "bird family",
+          "wildlife",
+          "nature"
+        ],
+        "categoryId": "22"
+      },
+      "status": {
+        "privacyStatus": "unlisted",
+        "madeForKids": true
+      },
+      "ImageUrl": "kenjicladia@gmail.com/Baby Birds in the Nest.jpg"
+    },
+    {
+      "snippet": {
+        "title": "Hummingbirds at the Feeder",
+        "description": "Tiny hummingbirds hovering gracefully at a feeder. Watch their incredible speed and agility as they feed.",
+        "tags": [
+          "hummingbird",
+          "bird",
+          "feeder",
+          "wildlife",
+          "nature",
+          "garden birds"
+        ],
+        "categoryId": "22"
+      },
+      "status": {
+        "privacyStatus": "private",
+        "madeForKids": true
+      },
+      "ImageUrl": "kenjicladia@gmail.com/Hummingbirds at the Feeder.jpg"
+    },
+    {
+      "snippet": {
+        "title": "Flight of the Swans",
+        "description": "A beautiful scene of graceful swans taking flight over a tranquil lake. Relax and enjoy the serene beauty of nature.",
+        "tags": [
+          "swan",
+          "bird",
+          "flying",
+          "lake",
+          "nature",
+          "wildlife",
+          "water birds"
+        ],
+        "categoryId": "28"
+      },
+      "status": {
+        "privacyStatus": "private",
+        "madeForKids": true
+      },
+      "ImageUrl": "kenjicladia@gmail.com/Flight of the Swans.jpg"
+    },
+    {
+      "snippet": {
+        "title": "Owls in the Forest",
+        "description": "Nocturnal owls resting in their forest habitat.  Learn about these amazing creatures of the night.",
+        "tags": [
+          "owl",
+          "bird",
+          "forest",
+          "wildlife",
+          "night",
+          "nature",
+          "birds of prey"
+        ],
+        "categoryId": "22"
+      },
+      "status": {
+        "privacyStatus": "private",
+        "madeForKids": true
+      },
+      "ImageUrl": "kenjicladia@gmail.com/Owls in the Forest.jpg"
+    }
+  ]

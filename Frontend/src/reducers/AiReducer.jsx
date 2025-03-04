@@ -1,11 +1,14 @@
 
 import {
-    AiImageReducer
+    AiVideoMergeUrlReducer,
     
 }from '../actions/types'
 
 const initialState = {
-    AiGeneratedImage : null,
+    AiVideoMergeUrl : null,
+    AiVideoUrl : '',
+    AiVideoConversionState : null,
+    AiVideoConversionStateResponse : null
     
 };
 
@@ -18,12 +21,12 @@ export default function (state = initialState, action) {
         //console.log('fired')
     switch (type) {
         
-        case AiImageReducer:
+        case AiVideoMergeUrlReducer:
             return {
                 ...state,
-                AiGeneratedImage : payload
-            }
-        
+                AiVideoMergeUrl : payload
+            }     
+     
         default:
             return state
     }

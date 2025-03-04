@@ -9,7 +9,5 @@ axios.defaults.xsrfCookieName = 'csrftoken'
 axios.defaults.xsrfHeaderName = 'x-csrftoken'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
     <App />
-  </React.StrictMode>,
 )

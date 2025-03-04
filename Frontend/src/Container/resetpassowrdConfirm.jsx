@@ -1,7 +1,6 @@
 import React, { useLayoutEffect, useState } from "react";
 import {CheckAuthenticated, load_user} from '../actions/auth'
 import '../App.css'
-import Navbar from "../Components/navbar";
 import axios from 'axios'
 
 import { useParams } from 'react-router-dom';
@@ -67,9 +66,7 @@ const ResetPasswordConfirm = ({ match,reset_passoword_confirm}) => {
     
     return(
         <div className=" mb-5 w-full">
-              <div className=" top-0 sticky w-full  border-slate-900">
-                <Navbar />
-            </div>
+             
            <h1 className=" text-3xl mx-auto text-center font-semibold font-mono py-2"> Reset Your Password </h1>
 
             <form noValidate className="  md:mt-36 lg:mt-60 bg-transparent max-w-[800px] gap-4 min-h-fit shadow-lg shadow-red-700 flex flex-col  justify-around w-[90%] border-[1px] placeholder:text-center placeholder:font-semibold border-slate-900 p-3 rounded-sm  mx-auto align-middle" onSubmit={handleSubmit(SubmitResConfirm)}>

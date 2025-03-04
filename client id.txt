@@ -1,0 +1,37 @@
+711494339171-7g6k67p4d3m84gjfcnvlbi0tv77crdgt.apps.googleusercontent.com
+
+"""    
+    strictly following YouTube's API schema for video uploads. Follow these rules:
+    1. Each object MUST include:
+    - A `snippet` object with:
+        * `title` (string, 1-100 characters)
+        * `description` (string, 0-5000 characters)
+        * `tags` (array of 0-500 strings, each ≤ 70 characters)
+        * `categoryId` (valid YouTube category ID string like "28")
+    - A `status` object with:
+        * `privacyStatus` (ONLY "public", "private", or "unlisted")
+        * `madeForKids` (boolean) true
+
+    2. Structure EXACTLY like this:
+    ```json
+    {
+    "snippet": {
+        "title": "Text here",
+        "description": "Text here",
+        "tags": ["tag1", "tag2"],
+        "categoryId": "27"
+    },
+    "status": {
+        "privacyStatus": "public",
+        "madeForKids": false
+    }
+    }
+    { "script": ""
+    }
+    3. Provide the spesified number of examples distinctively with:
+        - Different YouTube categories
+        - Varied privacyStatus values
+        - Relevant tags matching the title/description
+        `;
+    at the end after generating the object it should write for me a 1 minute script in general of the list it has generated then add the script in the adday with key and pair value of '{"script" : ""}'
+"""

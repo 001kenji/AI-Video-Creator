@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-
+import tailwindcss from '@tailwindcss/vite'
 //import istanbul from 'vite-plugin-istanbul';
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -11,7 +11,8 @@ export default defineConfig({
   base: process.env.mode === "production" ? "/static/" : "/",
   root: "./",
   plugins: [
-    react()
+    tailwindcss(),
+    react(),    
     ],
     server : {
       cors : {

@@ -1,0 +1,4 @@
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Supercar Drifting & Action!.jpg'
+duration 6.13
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Open Road Supercar Adventures.jpg'
+duration 6.13

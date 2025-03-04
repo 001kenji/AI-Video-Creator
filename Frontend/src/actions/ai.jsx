@@ -1,44 +1,43 @@
 import {
     FAIL_EVENT,
+    AiVideoMergeUrlReducer,
     SUCCESS_EVENT,
-    AiImageReducer
 } from './types'
 import Cookies from 'js-cookie'
 
-export const PromptImageAI = (props) => async dispatch => {
- 
-    function AuthFunc(data, imageBlob) {
+export const PromptMergeVideos = (props) => async dispatch => {
+    dispatch({
+        type: AiVideoMergeUrlReducer,
+        payload:  false 
+    });
+    function AuthFunc(data) {
         const parsedData = data ? JSON.parse(data) : {};
         if (parsedData.failed) {
             dispatch({
                 type: FAIL_EVENT,
                 payload: parsedData.failed
             });
+            dispatch({
+                type: AiVideoMergeUrlReducer,
+                payload:  null 
+            });
         } else {
-            // Convert blob to Base64
-            const reader = new FileReader();
-            reader.readAsDataURL(imageBlob);
-            reader.onloadend = () => {
-                const base64Image = reader.result;  // This is a Base64 encoded image string
-                
-                dispatch({
-                    type: AiImageReducer,
-                    payload:  base64Image  // Store Base64 image in Redux
-                });
-                
-                // dispatch({
-                //     type: SUCCESS_EVENT,
-                //     payload:  'Your request is successful'  // Store Base64 image in Redux
-                // });
-            };
+            dispatch({
+                type: AiVideoMergeUrlReducer,
+                payload:  parsedData.video_url 
+            });
+            
+            dispatch({
+                type: SUCCESS_EVENT,
+                payload:  parsedData.success
+            });
         }
-    }
-    
+    }    
 
     try{
     
     var myHeaders = new Headers();
-    myHeaders.append("Content-Type", "application/json");
+    // myHeaders.append("Content-Type", "application/json");
     myHeaders.append('Accept', 'application/json')
     if(localStorage.getItem('access') != null){
         myHeaders.append('Authorization' , `JWT ${localStorage.getItem('access')}`)
@@ -53,23 +52,21 @@ export const PromptImageAI = (props) => async dispatch => {
         redirect: 'follow',
         body : props
       };
-    fetch(`${import.meta.env.VITE_APP_API_URL}/app/generate-ai-image/`, requestOptions)
-    .then(response => {
-        if (!response.ok) {
-            throw new Error("Network response was not ok");
-        }
-        return response.blob();  // Get image as Blob
-    })
-    .then(imageBlob => {
-        AuthFunc(imageBlob);
-    })
+    fetch(`${import.meta.env.VITE_APP_API_URL}/app/merge/`, requestOptions)
+    .then(response => response.text())
+    .then(result => AuthFunc(result))
     .catch(error => {
         console.error('Fetch error:', error);
         dispatch({
             type: FAIL_EVENT,
             payload: 'Failed to fetch AI-generated image'
         });
+        dispatch({
+            type: AiVideoMergeUrlReducer,
+            payload:  'error' 
+        });
     });
+   
          
      }catch(err) {
         console.log(err)
@@ -77,3 +74,4 @@ export const PromptImageAI = (props) => async dispatch => {
      }
 
 }
+

@@ -1,7 +1,6 @@
 from django.contrib import admin
 from django import forms
-from .models import Account,AccountManager,GroupChat,PersonalChats,CommunityChat,RequestTable,GroupChatUsersList
-from .models import AiPageCarousels,OnlineStatus
+from .models import Account,AccountManager
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
@@ -37,11 +36,11 @@ class BlacklistedTokenAdmin(admin.ModelAdmin):
     search_fields = ('user__email', 'user__username', 'token')
     list_filter = ('blacklist_date',)
 
+
 ActiveUser = Account.objects.all()
 class UserAccountAdmin (admin.ModelAdmin):
     
     list_display=('name','email','is_staff')
-    exclude=['JobsHistory,rattings','requestedJobs']
     list_filter=['is_staff','is_active','is_superuser']
 
     def get_actions(self, request):
@@ -60,23 +59,6 @@ class UserAccountAdmin (admin.ModelAdmin):
     
 
     def response_add(self, request, obj, post_url_continue=None):
-        # Get the created primary key of the user
-        user_pk = str(obj.pk)
-        userid = str(obj.id)
-       
-        detail = {
-                obj.email : {
-                    'name' : obj.name,
-                    'about' : obj.about,
-                    'id' : userid,
-                    'ProfilePic' : f'http://127.0.0.1:8000{obj.ProfilePic.url}'
-                }
-            }
-        now = datetime.datetime.now()
-        short_date = now.strftime("%Y-%m-%d")   
-           
-        PersonalChats.objects.create(group_name = user_pk,RecieverId = '',SenderId = userid,Details = detail,DateCreated = str(short_date),name = obj.name,email = obj.email)
-        #creating a folder for each user as they are registered
         folder_name = str(obj.email)
         folder_path = os.path.join(settings.MEDIA_ROOT, folder_name)
 
@@ -114,7 +96,6 @@ class UserAccountAdmin (admin.ModelAdmin):
         
     def response_delete(self, request, obj_display, obj_id):
         opts = self.model._meta
-        pk_value = obj_id
         preserved_filters = self.get_preserved_filters(request)
 
         if obj_display:
@@ -138,7 +119,7 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','password','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','about')
+                'fields' : ('ProfilePic','ProfileAbout',)
             })
             ,)
         else:
@@ -147,95 +128,16 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','about')
+                'fields' : ('ProfilePic','ProfileAbout',)
             })
             ,)
         return New_fieldsets 
     
     readonly_fields=('id',)
     
-class GrouplistAdmin(admin.ModelAdmin):
-    exclude=['UsersList','ChatLogs','account_email']
-    readonly_fields = ['Creator','DateCreated','group_name']
-    list_display= ('title',)   
-    def save_model(self, request, obj, form, change):
-        email = request.user.email
-        name = request.user.name
-        accountref = Account.objects.get(email = email)
-        
-        if not obj.pk:  # If this is a new object
-            now = datetime.datetime.now()
-            short_date = now.strftime("%Y-%m-%d")  
-            #obj.UsersList = [email]
-            obj.account_email = accountref
-            obj.Creator = email
-            obj.DateCreated = str(short_date)
-            
-            val = f'{request.user.email}Groups{obj.pk}'
-            NewMessegerFolder = os.path.join(settings.MEDIA_ROOT,val)
-            if not os.path.exists(NewMessegerFolder):
-                os.makedirs(NewMessegerFolder)
-        super().save_model(request, obj, form, change) 
-        
-        exists = GroupChatUsersList.objects.filter(name = name,email = email,group_ref = obj).exists()
-        if not exists:
-            GroupChatUsersList.objects.create(name = name,email = email,group_ref = obj)
-
-    def delete_model(self, request, obj):
-        #removing entire user content details stored in the server
-        folder_name = f'{request.user.email}Groups{obj.pk}'        
-        folder_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-        # Create the folder
-        if os.path.exists(folder_path):
-            shutil.rmtree(folder_path)
-        super().delete_model(request, obj)
-
-class CommunitylistAdmin(admin.ModelAdmin):
-    exclude=['DateCreated','ChatLogs','account_email','group_name']
-    readonly_fields = ['Creator']
-    list_display= ('title','DateCreated')  
-    def save_model(self, request, obj, form, change):
-        email = request.user.email
-        accountref = Account.objects.get(email = email)
-        if not obj.pk:  # If this is a new object
-            now = datetime.datetime.now()
-            short_date = now.strftime("%Y-%m-%d")  
-            obj.Creator = email
-            obj.account_email = accountref
-            obj.DateCreated = str(short_date)  
-            super().save_model(request, obj, form, change)
-    def delete_model(self, request, obj):
-        #removing entire user content details stored in the server
-        folder_name = f'{request.user.email}Community{obj.pk}'        
-        folder_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-        # Create the folder
-        if os.path.exists(folder_path):
-            shutil.rmtree(folder_path)
-        super().delete_model(request, obj)
-
-class PersonalChatsAdmin(admin.ModelAdmin):
-    exclude=['Details','ChatLogs']
-    readonly_fields= ['RecieverId','SenderId','encryptionKey']
-    list_display= ('group_name','SenderId','RecieverId')    
-
-class GroupChatUsersListAdmin(admin.ModelAdmin):
-    readonly_fields= ['group_ref','name','email']
 
 
-class AiPageCarouselsAdmin(admin.ModelAdmin):
-    list_display = ('title',)
-    search_fields = ('title',)
-
-class OnlineStatusAdmin(admin.ModelAdmin):
-    pass
 
 admin.site.unregister(Group)
 admin.site.register(Account, UserAccountAdmin)
-admin.site.register(GroupChat,GrouplistAdmin)
-admin.site.register(RequestTable)
-admin.site.register(CommunityChat,CommunitylistAdmin)
-admin.site.register(PersonalChats,PersonalChatsAdmin)
-admin.site.register(AiPageCarousels,AiPageCarouselsAdmin)
-admin.site.register(OnlineStatus,OnlineStatusAdmin)
-admin.site.register(GroupChatUsersList,GroupChatUsersListAdmin)
 

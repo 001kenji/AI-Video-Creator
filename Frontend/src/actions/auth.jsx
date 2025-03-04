@@ -23,102 +23,42 @@ import {
     SUCCESS_EVENT,
     FAIL_EVENT,
     }from './types'
+    import Cookies from 'js-cookie';
 
-
-
-
-export const GetCSRFToken = () => async dispatch => {
-    function encryptText(text, key) {
-        const encrypted = CryptoJS.AES.encrypt(text, key).toString();
-        return encrypted;
-    }
-    
-    function decryptText(encrypted_text, key) {
-        const decrypted = CryptoJS.AES.decrypt(encrypted_text, key).toString(CryptoJS.enc.Utf8);
-        return decrypted;
-    }
-    
-                
-
-            function CsrfFunc(data) {
-                const res = JSON.parse(data)
-                //console.log(res)
-              
-            //handleDecrypt(data.encryptedToken)
-            
-           if(res.Success == 'CSRF cookie set'){
-                //const decryptedText = decryptText(data.encryptedToken, key);
-                //console.log('token is :', res.encryptedToken);
-                // Cookies.set('Inject',res.encryptedToken,{
-                //     Domain :'127.0.0.1',
-                //    // path: '/',
-                //    // HttpOnly: true,
-                //     //Secure: false
-
-                // })
-                
-                //console.log(response)
-                dispatch ({
-                    type: csrf_SUCCESS
-                })
-                //console.log('reached test2')
-                
-            
-            } else {
-                //console.log('failed to load csrf')
-                dispatch ({
-                    type: csrf_FAIL
-                })
-            }
-        }
-        
-
-        try{
-            var myHeaders = new Headers();
-        myHeaders.append("Content-Type", "application/json");
-        myHeaders.append('Accept', 'application/json')
-        myHeaders.append( 'Authorization', `JWT ${localStorage.getItem('access')}`)
-       
-          
-        const requestOptions = {
-        method: "GET",
-        redirect: "follow",
-        //withCredentials: true,
-        credentials: 'include', // This tells the browser to include cookies in the request
-        };
-          
-        fetch(`${import.meta.env.VITE_APP_API_URL}/cred/csrfToken/`, requestOptions)
-
-        .then(response => response.text())
-        .then(result => CsrfFunc(result))
-        .catch(error => {
-            //console.error('There has been a problem with your fetch operation:', error);
-            dispatch({
-              type: csrf_FAIL,
+    export const GetCSRFToken = () => async dispatch => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_APP_API_URL}/cred/csrfToken/`, {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `JWT ${localStorage.getItem('access')}`
+                },
+                credentials: "include", // Ensure cookies are sent
             });
-        });
-
-            
-        // let csrfURL = `${import.meta.env.VITE_APP_API_URL}/cred/csrfToken/`;
-        // const response = await axios.get(csrfURL);
-        
-        //console.log(response.data)
-
-       // getCookie('Inject')
-           
-         }catch(err) {
-             //console.log('csrf error is: ',err)
-             dispatch ({
-                 type: csrf_FAIL
-             })
-     
-         }
-
-
-
+    
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+    
+            const res = await response.json(); // Ensure JSON parsing
+            //console.log("CSRF Response:", res);
+    
+            if (res.Success === "CSRF cookie set") {
+                Cookies.set("Inject", res.encryptedToken, {
+                    path: "/",
+                    secure: true,
+                    sameSite: "None",
+                });
+            }
+        } catch (error) {
+            console.error("CSRF Fetch Error:", error);
+            dispatch({ type: csrf_FAIL });
+        }
+    };
     
 
-}
+
 
 export const CheckAuthenticated = () => async dispatch => {
     if(localStorage.getItem('access')) {

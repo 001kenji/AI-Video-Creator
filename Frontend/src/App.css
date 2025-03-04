@@ -1,9 +1,7 @@
 input {
-    border: 1px solid black;
-    padding: 3px;
-    border-radius: 3px;
-    min-height: 30px;
-    
+   background-color: transparent;
+  outline: none;
+  border: none;
 }
 
 
@@ -31,23 +29,6 @@ input {
     outline: none; /* Remove outline */
   }
 
-  @media print {
-    .table-container {
-      /* Set the table layout */
-      table-layout: fixed;
-  
-      /* Set the width of the table */
-      width: 100%;
-  
-      /* Set the margin of the table */
-      margin: 1cm;
-  
-      /* Set the paper size */
-      @page {
-        size: A4 portrait;
-      }
-    }
-  }
 
 
 @font-face {

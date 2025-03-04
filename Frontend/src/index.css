@@ -1,6 +1,30 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@plugin "daisyui";
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* TAILWIND CUSTOM VARIABLES */
+@theme {
+  --breakpoint-xs: '320px';
+  --shadow-xs: 0px 0px 8px 1px rgba(0, 0, 0, 0.25);
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*  */
 
 ::-webkit-scrollbar {
   width: 8px; /* width of the scrollbar */

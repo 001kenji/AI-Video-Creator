@@ -11,13 +11,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 SECRET_KEY = os.environ.get('SECRET_KEY')
 import google.generativeai as genai
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOSTS_LIST')] 
+# ALLOWED_HOSTS = [os.environ.get('ALLOWED_HOSTS_LIST'),os.environ.get('FRONTEND_URL'),os.environ.get('HostPath')] 
+ALLOWED_HOSTS = [
+    os.environ.get("ALLOWED_HOSTS_LIST", "127.0.0.1"),
+    os.environ.get("FRONTEND_URL", "localhost"),
+    os.environ.get("HostPath", "localhost"),
+]
+
 #to allow Django and the Django channel to connect with one another via a message broker
 
 ASGI_APPLICATION = "Messeger.asgi.application" #Messeger.asgi will handle the ASGI
@@ -58,7 +65,7 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    #'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -175,7 +182,7 @@ CORS_ALLOWED_ORIGINS = [
 ] 
 
 
-CORS_ALLOW_CREDENTIALS = True
+
 CSRF_TRUSTED_ORIGINS = [os.environ.get('FRONTEND_URL')]
 
 # settings.py
@@ -206,17 +213,28 @@ PASSWORD_HASHERS = [
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-
+CORS_ALLOW_CREDENTIALS = True
 
 ALLWOED_REDIRECT_URIS = [
     os.environ.get('FRONTEND_URL'),
     ]
 
+# #to prevent csrf attack
+# CSRF_COOKIE_NAME = "Inject"
+# CSRF_COOKIE_SECURE = True # only for httpp
+# SESSION_COOKIE_SECURE = False# only for httpp
+# CSRF_COOKIE_HTTPONLY = False
+# CSRF_COOKIE_SAMESITE = 'None'  # Change from 'Lax' to 'None'
+# SESSION_COOKIE_SAMESITE = 'None'
+# CIRCUIT_BREAKER_BACKEND = 'circuitbreaker.backends.memory.MemoryBackend'
+# CIRCUIT_BREAKER_DEFAULT_TIMEOUT = 60  
+# CIRCUIT_BREAKER_DEFAULT_FAILURE_THRESHOLD = 5
+# CIRCUIT_BREAKER_DEFAULT_RECOVERY_TIMEOUT = 30  
+
 #to prevent csrf attack
 CSRF_COOKIE_NAME = "Inject"
 CSRF_COOKIE_SECURE = True # only for httpp
 SESSION_COOKIE_SECURE = True# only for httpp
-
 CIRCUIT_BREAKER_BACKEND = 'circuitbreaker.backends.memory.MemoryBackend'
 CIRCUIT_BREAKER_DEFAULT_TIMEOUT = 60  
 CIRCUIT_BREAKER_DEFAULT_FAILURE_THRESHOLD = 5
@@ -250,6 +268,7 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated'
     ],
     'DEFAULT_AUTHENTICATION_CLASSES': (
+         'rest_framework.authentication.TokenAuthentication', ### Aded
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     ## appliying throlling to prevent DDoS attacks
@@ -261,6 +280,7 @@ REST_FRAMEWORK = {
         'anon': '10/minutes',
         'user': '30/minutes',
         'ai' : '5/min',
+        'VTV_AI' : '1/min',
         'csrf': '100/min',
         'DataThrottler' : '50/min',
         'fileUpload' : '5/min',
@@ -276,7 +296,7 @@ SIMPLE_JWT = {
 # this is for telling djoser where the knowladge of handling hashed and salted password is
 AUTHENTICATION_BACKENDS = (
     'Chat.custom_auth.CustomAuthBackend',
-    'Chat.custom_auth.CustomUserDeleteBackend',
+    # 'Chat.custom_auth.CustomUserDeleteBackend',
     'django.contrib.auth.backends.ModelBackend',
 )
 

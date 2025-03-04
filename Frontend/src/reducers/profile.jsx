@@ -1,9 +1,6 @@
 
 import {
-    PostCommentsReducer,
     ProfileAboutReducer,
-    ProfilePostReducer,
-    SavedProfilePostReducer,
     FolderListReducer,
     FileListReducer,
     ProfileAccountReducer,
@@ -14,9 +11,6 @@ import {
 const initialState = {
     ProfileAbout : null,
     SelectedPage : null,
-    ProfilePost : [],
-    PostComments : [],
-    SavedProfilePost : [],
     FolderList : [],
     FileList : [],
     ProfileAccount : {
@@ -24,8 +18,6 @@ const initialState = {
         'AccountID' : '',
         'AccountName' : 'Gest',
         'IsOwner' : false,
-        'following' : 0,
-        'followers' : 0,
         'IsFollowing' : false
     }
 };
@@ -43,21 +35,6 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 ProfileAbout : payload
-            }
-        case ProfilePostReducer:
-            return {
-                ...state,
-                ProfilePost : payload
-            }
-        case SavedProfilePostReducer:
-            return {
-                ...state,
-                SavedProfilePost: payload
-            }
-        case PostCommentsReducer:
-            return {
-                ...state,
-                PostComments : payload
             }
         case FolderListReducer:
             return {

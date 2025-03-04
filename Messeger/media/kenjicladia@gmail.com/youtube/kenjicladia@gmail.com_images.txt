@@ -1,0 +1,10 @@
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Birds in Flight: Eagles Soaring.jpg'
+duration 2.452
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Baby Birds in Nest.jpg'
+duration 2.452
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Hummingbirds at their Nest.jpg'
+duration 2.452
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Birdsong Serenade: A Morning Symphony.jpg'
+duration 2.452
+file 'D:/Programming/MELA (MEdia Linked Ai)/Messeger/media/kenjicladia@gmail.com/youtube/Flight of the Swallows.jpg'
+duration 2.452

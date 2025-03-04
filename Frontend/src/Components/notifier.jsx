@@ -5,7 +5,7 @@ import { CLEAR_EVENT, INTERCEPTER, NOTIFIER_STATUS } from "../actions/types";
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-const Notifier =  (props,{isAuthenticated}) =>{
+const Notifier =  ({isAuthenticated}) =>{
     const [type, setType] = useState('FAIL')
     const [payload, setPayload] = useState('null')
     const dbEvent  = useSelector((state) => state.auth)

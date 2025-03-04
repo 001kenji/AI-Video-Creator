@@ -1,21 +1,13 @@
 import { useEffect, useState } from 'react'
 import{BrowserRouter, Navigate , Route, Routes} from 'react-router-dom'
-import {connect} from 'react-redux'
-import { CheckAuthenticated, load_user } from './actions/auth'
 import './App.css'
 import Home from './Container/home'
-import Chat from './Container/chat'
 import Activate from './Container/activate'
-import Login from './Container/login'
-import Signup from './Container/signup'
-import ResetPassword from './Container/resetpassowrd'
-
 import ResetPasswordConfirm from './Container/resetpassowrdConfirm'
 import ErrorBoundary from './Components/error'
 
 import { Provider }  from 'react-redux'
 import Store from './store'
-import Job from './Container/job'
 
 function App(props) {
   // useEffect(() => {

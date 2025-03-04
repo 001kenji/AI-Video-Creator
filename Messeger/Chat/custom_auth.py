@@ -19,13 +19,15 @@ from django.conf import settings
 
 
 class CustomAuthBackend(BaseBackend):
-    def authenticate(self, request,email=None, password=None, **kwargs):
+    def authenticate(self, request,username=None, password=None, **kwargs):
         UserModel = get_user_model()
         try:
-            emailval = sanitize_string(email)
+            emailval = sanitize_string(username)
             passwordval = sanitize_string(password)
+            # print(emailval,password)
             user = UserModel.objects.get(email=emailval)
             if user.check_password(passwordval):
+                print('password match',user)
                 return user
         except UserModel.DoesNotExist:
             return None
