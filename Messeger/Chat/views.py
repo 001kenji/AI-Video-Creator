@@ -22,6 +22,13 @@ from django.http import JsonResponse
 from django.db.models import QuerySet
 from PIL import Image, ImageDraw, ImageFont
 from asgiref.sync import sync_to_async
+# YOUTUBE AND GOOGLE 
+from django.http import JsonResponse
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import os
+from google_auth_oauthlib.flow import Flow
+##
 class Datathrottler(UserRateThrottle):
     scope = 'DataThrottler'
 
@@ -210,11 +217,7 @@ class FileUploadView(APIView):
                 f.write(file_data)
         return Response( status=status.HTTP_200_OK)
 
-from django.http import JsonResponse
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-import os
-from google_auth_oauthlib.flow import Flow
+
 
 redisConnection = settings.REDIS_CONNECTION 
 

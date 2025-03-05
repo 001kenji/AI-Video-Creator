@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import BaseBackend
-import os,shutil
+import os,shutil,json
 from django.contrib.auth.hashers import check_password
 from datetime import datetime
 from django.contrib.auth import logout
@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from .models import sanitize_string
 from django.conf import settings
-
+import requests
 
 class CustomAuthBackend(BaseBackend):
     def authenticate(self, request,username=None, password=None, **kwargs):
@@ -72,6 +72,7 @@ class CustomUserDeleteBackend(UserViewSet):
             if user.check_password(passwordval):
                 # Step 3: Perform additional custom actions
                 print('password match, performing custom actions')
+                self.revoke_oAuth_token(emailval=emailval)
                 self.perform_custom_actions(emailval)
                 print('deleting user')
                 # Step 4: Delete the user account
@@ -88,7 +89,33 @@ class CustomUserDeleteBackend(UserViewSet):
                 status=status.HTTP_401_UNAUTHORIZED
             )
        
-        
+    def revoke_oAuth_token(self, emailval):
+        """
+        revoke users existing access of your app and user's youtube
+        """
+        #removing entire user content details stored in the server
+        try:
+            folder_name = str(emailval)
+            file_path = os.path.join(settings.MEDIA_ROOT, folder_name,'token.json')
+            if os.path.exists(file_path):
+                # Open and read the JSON file
+                with open(file_path, 'r') as file:
+                    token_data = json.load(file)
+
+                # Retrieve the 'token' key
+                access_token = token_data.get("token")
+
+                response = requests.post(
+                    "https://accounts.google.com/o/oauth2/revoke",
+                    params={"token": access_token},
+                    headers={"content-type": "application/x-www-form-urlencoded"},
+                )
+                if response.status_code == 200:
+                    print("✅ OAuth token revoked successfully.")
+                else:
+                    print("⚠ Failed to revoke token:", response.json())
+        except Exception as e:
+            print(f'\nError {e} \n occured when trying to run the revoke token function')   
 
     def perform_custom_actions(self, emailval):
         """
@@ -103,6 +130,8 @@ class CustomUserDeleteBackend(UserViewSet):
         if os.path.exists(folder_path):
             shutil.rmtree(folder_path)
         print('folders deleted successfuly')
+
+    
 
 
 class SetHeaderMiddleware:
