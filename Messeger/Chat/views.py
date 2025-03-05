@@ -263,32 +263,63 @@ class MergeView(APIView):
             data = request.data
             emailval = sanitize_string(data['email'])
             dataval = json.loads(data['data'])
-            audio_file = data['audio']
-            audio_name = data['audioName']
+            AudioScope = data['AudioScope']
             SocialMediaType = sanitize_string(data['SocialMediaType'])
-            audio_name_no_extension = str(audio_name).split('.')
+            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
             accountref = Account.objects.filter(email = emailval)
-            
+            custom_storage = FileSystemStorage(location=folder_path)
             if not accountref.exists():
                 responseval = {'failed' : 'This account does not exist.Login to proceed.'}
                 return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
             
-            if not audio_file or not dataval or not SocialMediaType or SocialMediaType == '':
-                return Response({'error': 'Missing required files'}, status=400)
+            if AudioScope == 'OneForAll':
+                audio_file = data['audio']
+                audio_name = data['audioName']
 
-            # Save the audio file
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            custom_storage = FileSystemStorage(location=folder_path)
-            custom_storage_audio_path = os.path.join(folder_path,audio_name)
+                if not audio_file or not dataval or not SocialMediaType or SocialMediaType == '':
+                    return Response({'error': 'Missing required files'}, status=400)
 
-            delete_file(custom_storage_audio_path)
-            if not custom_storage.exists(audio_name):
-                audio_path = custom_storage.save(audio_name, audio_file)
+                # Save the audio file
+                
+                custom_storage = FileSystemStorage(location=folder_path)
+                custom_storage_audio_path = os.path.join(folder_path,audio_name)
+
+                delete_file(custom_storage_audio_path)
+                if not custom_storage.exists(audio_name):
+                    audio_path = custom_storage.save(audio_name, audio_file)
+                
+                # Extract audio duration
+                audio_clip = AudioFileClip(custom_storage_audio_path)
+                audio_duration = audio_clip.duration  # Get duration in seconds
+                audio_clip.close()
+            elif AudioScope == 'AllForAll':
+                audio_files = request.data.getlist("audio")
+                if not audio_files or not SocialMediaType or SocialMediaType == '':
+                    return Response({'error': 'Missing required files'}, status=400)
+
+                # Save the audio file
+                
+                
+                custom_storage_audio_list = []
+                audio_duration_list = []
+                i = 0
+                for audio in audio_files:
+                    filename = os.path.join(folder_path, audio.name)
+                    delete_file(filename)
+                    with open(filename, "wb") as destination:
+                        for chunk in audio.chunks():
+                            destination.write(chunk)
+                    custom_storage_audio_list.append(filename)                
+                
+                    # Extract audio duration
+                    audio_clip = AudioFileClip(filename)
+                    audio_duration = audio_clip.duration  # Get duration in seconds
+                    audio_duration_list.append(audio_duration)
+                    audio_clip.close()
+                    print(f'saved audio {i}/{len(audio_files)} audios')
+                    i += 1
             
-            # Extract audio duration
-            audio_clip = AudioFileClip(custom_storage_audio_path)
-            audio_duration = audio_clip.duration  # Get duration in seconds
-            audio_clip.close()
+            
 
             position = 0
             response_url = []
@@ -322,7 +353,11 @@ class MergeView(APIView):
                         
             
                 # Define output video paths
-                custom_videos_name = f'{audio_name_no_extension[0]}_{position}'
+                if AudioScope == 'AllForAll':
+                    
+                    custom_videos_name = f'all_for_all_audio_{position}'
+                elif AudioScope == 'OneForAll':
+                    custom_videos_name = f'one_for_all_audio_{position}'
                 video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
                 final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
                 delete_file(video_no_audio)
@@ -337,9 +372,10 @@ class MergeView(APIView):
 
                 # Merge video with audio
                 print('Merge video with audio')
+                audio_path_val = custom_storage_audio_path if AudioScope == 'OneForAll' else custom_storage_audio_list[position]
                 (
                     ffmpeg
-                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
+                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(audio_path_val), v=1, a=1)
                     .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
                     .run(overwrite_output=True)
                 )

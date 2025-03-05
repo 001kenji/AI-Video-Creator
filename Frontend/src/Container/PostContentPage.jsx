@@ -40,10 +40,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
     const db = useSelector((state) => state.auth.user)  
     const UserEmail  = db != null ? db.email : 'gestuser@gmail.com'
     const UserID  = db != null ? db.id : ''
-    const [AudioUpload,SetAudioUpload] = useState({
+    const [AudioUpload,SetAudioUpload] = useState([])
+    const [OneForAllAudioUpload,SetOneForAllAudioUpload] = useState({
         'file' : null,
-        'src' : null,
-        'Name' : null,
+        'Name' : '',
+        'src' : ''
     })
     const ProfileDB = useSelector((state) => state.ProfileReducer.ProfileAbout)
     const [ProfilePicturePhoto,SetProfilePicturePhoto] = useState( db != null ? db.ProfilePic : ProfileTestImg)
@@ -56,9 +57,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
     const AiVoiceRef = useRef(null)
     const [PostContentContainer,SetPostContentContainer] = useState({
         'FirstStepLevel' : 1,
-        'SecondStepLevel' : 1,
+        'SecondStepLevel' : 2,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 1,
+        'progressLevel' : 2,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
@@ -66,9 +67,105 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         'ModeValue' : 'AI',
         'SocialMediaNumberVideosOptions' : [],
         'SocialMediaNumberImagesOptions' : [],
+        'VideoAudioModeOptions' : [],
+        'VideoAudioModeSelectedOptions' : [],
         'VideoListDetails' : '',
-        'VideoListDetailsWithImages' : [],
-        'UploadedVideoId' : ['I6lFhJS9XFs','adff32323d']
+        'SelectedAudioClassificationOptions' : [],
+        'VideoListDetailsWithImages' : [
+            {
+              "snippet": {
+                "title": "Majestic Eagles in Flight",
+                "description": "Stunning footage of bald eagles soaring through the Alaskan wilderness. Witness their incredible power and grace as they hunt and interact with their environment.  Filmed using high-definition cameras to capture every detail.",
+                "tags": [
+                  "eagle",
+                  "bald eagle",
+                  "Alaska",
+                  "wildlife",
+                  "birds of prey",
+                  "nature documentary",
+                  "birds"
+                ],
+                "categoryId": "22"
+              },
+              "status": {
+                "privacyStatus": "private",
+                "madeForKids": true,
+                "selfDeclaredMadeForKids": true
+              },
+              "audio": {
+                "script": "Open on a majestic bald eagle soaring high above the Alaskan wilderness.  Its powerful wings beat rhythmically against the wind.  The camera pans across the vast landscape, showcasing the eagle's natural habitat.  We see the eagle dive towards the water, catching a salmon with precision and strength. Close up shots emphasize the eagle's sharp talons and piercing gaze. The eagle takes flight again, soaring gracefully across the mountains.  The scene transitions to a family of eagles in their nest, their young ones chirping and demanding food.  The camera captures the intricate details of the eagle's feathers and movements. The majestic eagle, symbol of freedom and power, disappears into the vast expanse of the sky. The scene ends on a wide shot of the breathtaking Alaskan landscape."
+              },
+              "ImageList": [
+                {
+                  "name": "eagle_in_flight.jpg",
+                  "description": "A bald eagle in full flight, wings outstretched against a backdrop of Alaskan mountains.  Captures the power and beauty of this majestic bird."
+                }
+              ]
+            },
+            {
+              "snippet": {
+                "title": "Colorful Parrot Paradise",
+                "description": "Explore the vibrant world of parrots! This video showcases a variety of species, from the scarlet macaw to the playful budgie.  Learn about their unique characteristics, habitats, and behaviors.  Enjoy the incredible array of colors and sounds.",
+                "tags": [
+                  "parrot",
+                  "macaw",
+                  "budgie",
+                  "birds",
+                  "pets",
+                  "tropical birds",
+                  "colorful birds",
+                  "avian"
+                ],
+                "categoryId": "22"
+              },
+              "status": {
+                "privacyStatus": "private",
+                "madeForKids": true,
+                "selfDeclaredMadeForKids": true
+              },
+              "audio": {
+                "script": "Open on a vibrant scene of a rainforest, filled with the sounds of exotic birds.  Focus on a scarlet macaw perched on a branch, its feathers shimmering in the sunlight.  The camera moves to showcase various other parrot species, each with its unique coloring and characteristics.  Close-ups highlight their playful interactions and distinctive calls. The video features shots of parrots interacting with their owners, demonstrating their intelligence and affectionate natures.  We explore different parrot habitats, from lush rainforests to open woodlands.  The video highlights the importance of conservation and the beauty of these intelligent creatures.  The final scene shows a group of parrots in a vibrant display of plumage."
+              },
+              "ImageList": [
+                {
+                  "name": "parrot_flock.jpg",
+                  "description": "A vibrant flock of parrots of various species perched together on a tree branch, showcasing their diversity of colors and sizes."
+                }
+              ]
+            },
+            {
+              "snippet": {
+                "title": "Flamingo Flock on the Lake",
+                "description": "Observe a large flock of flamingos gracefully wading through a shallow lake.  Learn about their unique feeding habits and social behavior.  The beautiful pink plumage and elegant movements of these birds are truly mesmerizing.",
+                "tags": [
+                  "flamingo",
+                  "birds",
+                  "wildlife",
+                  "lake",
+                  "nature",
+                  "Africa",
+                  "pink",
+                  "waterbirds"
+                ],
+                "categoryId": "22"
+              },
+              "status": {
+                "privacyStatus": "private",
+                "madeForKids": true,
+                "selfDeclaredMadeForKids": true
+              },
+              "audio": {
+                "script": "Open on a wide shot of a beautiful lake, with a vast flock of flamingos wading through the shallows.  Their pink feathers contrast beautifully with the blue water and the surrounding landscape.  The camera focuses on a single flamingo, showing details of its feathers and long legs.  The video captures the flamingos' graceful movements as they feed, dipping their beaks into the water to filter out algae and small crustaceans.  The camera pans across the flock, highlighting their intricate social interactions.  The scene showcases the flamingos' elegant postures and the beauty of their coordinated movements. We observe the flamingos grooming themselves and interacting with their young. The scene ends on a majestic shot of the flamingos at sunset, their pink feathers glowing in the golden light."
+              },
+              "ImageList": [
+                {
+                  "name": "flamingo_lake.jpg",
+                  "description": "A large flock of flamingos standing in a shallow lake at sunset, their pink feathers illuminated by the warm light."
+                }
+              ]
+            }
+          ],
+        'UploadedVideoId' : []
     })
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
@@ -94,13 +191,18 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         { value: "9", label: "9 images",name : 'SocialMediaNumberImagesOptions' },
         { value: "10", label: "10 images",name : 'SocialMediaNumberImagesOptions' },
     ];
+    const VideoAudioModeOptions = [
+        { value: "OneForAll", label: "One audio for all videos",name : 'VideoAudioModeOptions' },
+        { value: "AllForAll", label: "Each audio for videos",name : 'VideoAudioModeOptions' },
+    ];
     const [ProfileAboutContainer,SetProfileAboutContainer] = useState({
             'GoogleAPICredentialFile' : null
     })
-   
+   const [DisableMergeButton,SetDisableMergeButton] = useState(true)
     const [SelectedVideoImageCarousel,SetSelectedVideoImageCarousel] = useState(0)
     const [SelectedVideoScriptCarousel,SetSelectedVideoScriptCarousel] = useState(0)
     const [SelectedVideoYoutubeIdCarousel,SetSelectedVideoYoutubeIdCarousel] = useState(0)
+    const [SelectedVideoAudioUploadContainer,SetSelectedVideoAudioUploadContainer] = useState(0)
     const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
     const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
     const WsDataStream = useRef(null)
@@ -162,6 +264,36 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
             }
            
     },[ProfileDB])
+
+    useEffect(() => {
+        // console.log('called')
+        if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
+            if(OneForAllAudioUpload.file == null){
+                SetDisableMergeButton(true)
+            }else {
+                SetDisableMergeButton(false)
+            }
+        }else if(PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll'){
+            var disable = false
+            
+            for (let i = 0; i < AudioUpload.length; i++) {
+                if(AudioUpload[i]){
+                    // console.log(AudioUpload[i].file)
+                    if(AudioUpload[i].file == null){
+                        disable = true
+                        break
+                    }
+                    
+                }                
+            }
+            if(AudioUpload.length != PostContentContainer.VideoListDetailsWithImages.length){
+                disable = true
+            }
+            SetDisableMergeButton(disable)
+        }else {
+            SetDisableMergeButton(true)
+        }
+    },[PostContentContainer.VideoAudioModeOptions,AudioUpload,OneForAllAudioUpload])
 
     const customTagSelectorTheme = (theme, mode = "light") => ({
         ...theme,
@@ -228,19 +360,57 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         }),
     });
         
-    const ToogleAudioUpload = (val) => {
+    const ToogleAudioUpload = (idval,position,AudioPreviewTag,AudioUploadName,event) => {
+        if (!event || !event.target || !event.target.files) {
+            ShowToast('warning','Seams like your upload is misbehaving')
+            console.log("Invalid event");
+            return;
+        }
+
+        const file = event.target.files[0];
+        if (!file) {
+            ShowToast('warning','Seams like your haven\'t selected any file. Try again')
+            console.log("No file selected");
+            return;
+        }
+        const Types = String(file.type).split("/");
+        if (Types[0] === "audio") {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const newObject = {
+                    'file': file,
+                    'Name': file.name,
+                    'VideoReference': position
+                };
+
+                SetAudioUpload((e) => {
+                    const updatedArray = [...e];
+                    if (updatedArray.length >= position) {
+                        updatedArray[position] = newObject;
+                    } else {
+                        updatedArray[position] = newObject;
+                        // updatedArray.push(newObject);
+                    }
+                    return updatedArray;
+                });
+                document.getElementById(AudioUploadName).value = file.name
+                document.getElementById(AudioPreviewTag).src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            document.getElementById(idval).src = ''
+        }
+
+    }    
+    const ToogleOneForAllAudioUpload = (val) => {
        
         var File =  AiVoiceRef.current.files[0] ?  AiVoiceRef.current.files[0] : val
        
         if(File) {
             var Types = String(File.type).split('/')
-            
-            if(Types[0] == 'image'){
-                
-            }else if(Types[0] == 'audio'){
+            if(Types[0] == 'audio'){
                 const render = new FileReader()
                 render.onload = function (e) {
-                    SetAudioUpload((val) => {
+                    SetOneForAllAudioUpload((val) => {
                         return {
                             ...val,
                             'file' : File,
@@ -252,8 +422,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 }
                 render.readAsDataURL(File) 
             }
-
-                   
         }
 
     }    
@@ -520,6 +688,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
             })
             requestWsStream('RequestCreateImages')
         }else if(props == 'Merge'){
+            if(PostContentContainer.VideoAudioModeSelectedOptions == ''){
+                ShowToast('warning','Seams like you haven\'t selected audio mode')
+                return
+            }
           
             SetPostContentContainer((e)=> {
                 return {
@@ -531,11 +703,20 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 }
             })
             const formData = new FormData()
+            if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
+                formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                formData.append('audio',OneForAllAudioUpload.file)
+                formData.append('audioName',OneForAllAudioUpload.Name)
+            }else if(PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll'){
+                formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                AudioUpload.forEach((audio, index) => {
+                    formData.append(`audio`, audio.file);
+                });
+            }
             formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
-            formData.append('audio',AudioUpload.file)
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
-            formData.append('audioName',AudioUpload.Name)
+            
             PromptMergeVideos(formData)
         }else if(props == 'back'){
             SetPostContentContainer((e)=> {
@@ -605,13 +786,26 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         //var name = selected[0] ? selected[0].name : selected[0]
         var MaxNumber = 1  
         if (selected.length <= MaxNumber) {
-           
-            SetPostContentContainer((e) => {
-                return {
-                    ...e,
-                    [val.name] : (selected)
-                }
+           //console.log((selected))
+           if(val.name == 'VideoAudioModeOptions'){
+                var value = selected[0] ? selected[0].value : ''
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        [val.name] : (selected),
+                        'VideoAudioModeSelectedOptions' : value
+                    }
                 })
+           }else {
+                var value = selected[0] ? selected[0].value : ''
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        [val.name] : (selected),
+                    }
+                })
+           }
+           
             
           
         }
@@ -646,7 +840,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
             })
         }
     }
-
     let startImageX = 0;
     let endImageX = 0;
     
@@ -744,6 +937,28 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
            
         }
     }
+    function ScrollVideoAudioUploadContainer (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoAudioUploadContainer === 0) {
+                    SetSelectedVideoAudioUploadContainer(PostContentContainer.VideoListDetailsWithImages.length - 1)
+                } else {
+                    SetSelectedVideoAudioUploadContainer((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoAudioUploadContainer >= PostContentContainer.VideoListDetailsWithImages.length - 1) {
+                    SetSelectedVideoAudioUploadContainer(0);
+                } else {
+                    SetSelectedVideoAudioUploadContainer((e) => e + 1);
+                }
+            }
+           
+        }
+    }
     function ScrollVideoYoutubeIdCarousel (props){
         if(props == 'back') {
             //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
@@ -800,6 +1015,47 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         })
         return lists
     }
+    function ClickUploadRepository (props) {
+        if(props != null){
+            document.getElementById(props).click()
+        }
+    }
+    function ClickOneForAllUploadRepository (props) {
+            AiVoiceRef.current.click()
+    }   
+    
+    function ClearUplaodedAudio (ival,position,AudioPreviewTag,AudioUploadName) {
+        if(ival != null && AudioPreviewTag != null){
+            const newObject = {
+                'file': null,
+                'Name': '_is empty_',
+                'VideoReference': null
+            };
+            SetAudioUpload((e) => {
+                const updatedArray = e;
+                if (updatedArray.length >= position) {
+                    updatedArray[position] = newObject;
+                    // updatedArray.splice(position, 1);
+                } 
+                return updatedArray
+            })
+            document.getElementById(AudioPreviewTag).src = ''
+            document.getElementById(AudioUploadName).value = '_is empty_'
+            document.getElementById(ival).src = ''
+        }
+        
+    }
+    function ClearOneForAllUplaodedAudio () {
+        SetOneForAllAudioUpload((e) => {
+            return {
+                'Name' : '',
+                'file' : null,
+                'src' : ''
+            }
+        })
+        document.getElementById('OneForAllAudioPreviewTag').src = ''
+        AiVoiceRef.current.src = ''           
+    }
     const MapImageCarouselsContainer = PostContentContainer.VideoListDetailsWithImages.map((items,i) => {
         
         var imageListval = items.ImageList
@@ -812,9 +1068,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                         {<MapImageCarousels imagelist={imageListval}/>}
                     </div>
                     {/* left right arrow div */}
-                    <div className=" flex flex-row sm:text-lg w-full mx-auto min-h-[10%] h-fit bg-transparent sm:my-auto justify-center dark:text-gray-400 pt-1 text-slate-700 text-base gap-10 mb-auto " >
-                        <LuCornerUpLeft  onClick={() => ScrollVideoImage('back')} className=" cursor-pointer bg-transparent hover:text-white transition-all  duration-300" />
-                        <LuCornerUpRight  onClick={() => ScrollVideoImage('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                    <div className=" flex flex-row relative sm:text-lg w-full mx-auto min-h-[10%] h-fit bg-transparent sm:my-auto justify-center dark:text-gray-400 pt-1 text-slate-700 text-base gap-10 mb-auto " >
+                        <p className=" text-sm py-1 absolute right-full left-0 top-0 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
+
+                        <LuCornerUpLeft  onClick={() => ScrollVideoImage('back')} className={` ${imageListval.length <= 1 ? 'invisible' : 'visible'} cursor-pointer bg-transparent hover:text-white transition-all  duration-300 `} />
+                        <LuCornerUpRight  onClick={() => ScrollVideoImage('next')} className={` ${imageListval.length <= 1 ? 'invisible' : 'visible'} cursor-pointer  hover:text-white bg-transparent transition-all duration-300 `} />
                     </div>
                 </div>
                 
@@ -827,6 +1085,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
        
         return (
             <div key={i} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
+                <p className=" text-sm py-1 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
                 <button onClick={() => copyToClipboard(script)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
                     <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
                 </button>
@@ -834,6 +1093,33 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
             </div>
         )
     })  
+    const MapVideoAudioUploadContainer = PostContentContainer.VideoListDetailsWithImages.map((items,i) => { 
+       var idval = `AiVoiceRef${i}`
+       var AudioPreviewTag = `${idval}_AudioPreviewTag`
+       var AudioUploadName = `${idval}_AudioUploadName` 
+       var audioUploadNameVal = AudioUpload[i] ? AudioUpload[i].Name : '_is empty_'
+        return (
+            <div key={i} className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
+                <input onChange={(event) =>ToogleAudioUpload(idval,i,AudioPreviewTag,AudioUploadName,event)} id={idval} className=" hidden" accept="audio/*"  type="file" />
+                <p className=" text-sm  text-slate-800 absolute dark:text-slate-400 " >{i + 1}</p>
+
+                <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
+                    <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
+                        <button onClick={() => ClickUploadRepository(idval)} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                            <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                        </button>
+                        <input id={AudioUploadName} className=" text-sm w-full rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={`name: ${audioUploadNameVal}`} />
+                    </div>
+
+                    <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
+                        <audio controlsList="nodownload"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " id={AudioPreviewTag} controls src=''></audio>
+                        <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() =>ClearUplaodedAudio(idval,i,AudioPreviewTag,AudioUploadName)} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                    </div>
+                </div>
+            </div>
+            
+        )
+    })
 
     const MapVideoYoutubeId = PostContentContainer.UploadedVideoId.map((items,i) => { 
         var script = items
@@ -858,23 +1144,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         )
     })
     
-    function ClickUploadRepository (props) {
-        if(props){
-            AiVoiceRef.current.click()
-        }
-    }
-    function ClearUplaodedAudio () {
-        SetAudioUpload((e) => {
-            return {
-                ...e,
-                'file' : null,
-                'src' : null,
-                'Name' : null
-            }
-        })
-        document.getElementById('AudioPreviewTag').src = ''
-        AiVoiceRef.current.src = ''
-    }
+    
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text)
             .then(() => ShowToast('info','Copied'))
@@ -1068,29 +1338,64 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                                     
                                 </div>
                                 {/* upload */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload audio to be merged with images created</p>
-                                <div className="flex flex-col justify-start sm:pl-8 gap-3 w-full h-fit" >
-                                    <input onChange={ToogleAudioUpload} ref={AiVoiceRef} className=" hidden" accept="audio/*"  type="file" />
-                                    <div className="flex flex-col sm:flex-row gap-2 justify-between w-full" >
-                                        <div className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full justify-start sm:w-fit gap-3`}>
-                                            <button onClick={() => ClickUploadRepository('click')} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-14 h-10 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                                <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                            </button>
-                                            <input className=" text-sm w-fit min-w-fit max-w-[200px] dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={`name: ${AudioUpload.Name}`} />
-                                        </div>
+                                
+                                {/* audio model selection */}
+                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Select audio mode</p>
+                                <Select
+                                    isMulti
+                                    options={VideoAudioModeOptions}
+                                    value={PostContentContainer.VideoAudioModeOptions}
+                                    onChange={handleSocialMediaOptionsChange}
+                                    name="VideoAudioModeOptions"
+                                    placeholder="..."
+                                    theme={(theme) => customTagSelectorTheme(theme, Theme)}
+                                    styles={customStyles(Theme)}
+                                    className="max-h-[200px] "
+                                />
+                                <p className={` ${PostContentContainer.VideoAudioModeSelectedOptions == '' ? 'hidden' : ''} text-sm py-1 text-slate-800 dark:text-slate-400 `} >Upload audio to be merged with images created</p>
+                                
+                                <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                    <div className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
+                                        <input onChange={ToogleOneForAllAudioUpload} ref={AiVoiceRef} className=" hidden" accept="audio/*"  type="file" />
+                                        <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
+                                            <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
+                                                <button onClick={ClickOneForAllUploadRepository} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                                                    <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                                                </button>
+                                                <input  className=" text-sm w-full rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={`name: ${OneForAllAudioUpload.Name}`} />
+                                            </div>
 
-                                        <audio controlsList="nodownload"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " id="AudioPreviewTag" controls src={AudioUpload.src}></audio>
-                                        <p disabled={PostContentContainer.LoadingVideoList == true} onClick={ClearUplaodedAudio} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                                            <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
+                                                <audio controlsList="nodownload" id="OneForAllAudioPreviewTag"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " controls src={OneForAllAudioUpload.src}></audio>
+                                                <p disabled={PostContentContainer.LoadingVideoList == true} onClick={ClearOneForAllUplaodedAudio} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className=" flex flex-row flex-wrap gap-2 w-[90%] max-w-[600px] mx-auto mt-auto justify-around">
+                                <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedVideoAudioUploadContainer * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                {MapVideoAudioUploadContainer}
+                                            </div>
+                                        </div>
+                                        {/* arrow up down div */}
+                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                            <IoChevronUpOutline  onClick={() => ScrollVideoAudioUploadContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            <IoChevronDownOutline  onClick={() => ScrollVideoAudioUploadContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                                
+                                <div className=" flex flex-row flex-wrap gap-2 w-[90%] max-w-[600px] mx-auto mt-10 justify-around">
                                     <button onClick={() => ToongleSecondProgressLevel('back')} className={`  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Back</button>
 
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                         :
-                                            <button disabled={AudioUpload.file == null} onClick={() => ToongleSecondProgressLevel('Merge')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
+                                            <button disabled={DisableMergeButton} onClick={() => ToongleSecondProgressLevel('Merge')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
                                     }
                                 </div>
                             </div>

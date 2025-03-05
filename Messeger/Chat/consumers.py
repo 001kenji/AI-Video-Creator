@@ -231,9 +231,10 @@ async def RequestCreateImagesFunc(prompt,email,SocialMediaType):
                 print(f'\n\nAt object {loopval} generated {title}')
 
                 i += 1
-                print(f'\n\nRemainig loops {loopval}/{len(dataval)} objects and {i}/{len(objectval)} images')
+                print(f'\nRemainig images {i}/{len(objectval)} images')
 
             loopval += 1
+            print(f'\nRemainig loops {loopval}/{len(dataval)} objects ')
 
        
         reponseval = {'type' : 'success','status' : 'success','result' : 'All images processed','data' : dataval}
@@ -248,7 +249,7 @@ SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 
 def get_authenticated_service(credential_file_path,token_path):
     """Authenticate and return YouTube service"""
-    #print(1)
+    print(1)
 
     if os.path.exists(token_path):
         os.remove(token_path)
@@ -256,21 +257,21 @@ def get_authenticated_service(credential_file_path,token_path):
     # Load client secrets file, put the path of your file
     client_secrets_file = credential_file_path
 
-    ##print(2)
+    print(2)
     flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
         client_secrets_file, SCOPES,
         redirect_uri = "http://localhost:8080"
         )
-    #print(2.5,flow,flow.redirect_uri)
+    print(2.5,flow,flow.redirect_uri)
     credentials = flow.run_local_server(
         port=8080,
         open_browser=True,
         redirect_uri_trailing_slash=False  # Ensure no trailing slash
     )
-    #print(3)
+    print(3)
     youtube = googleapiclient.discovery.build(
         "youtube", "v3", credentials=credentials)
-    #print(4)
+    print(4)
     return youtube
 
 def is_video_a_short(video_path):
@@ -292,6 +293,7 @@ def is_video_a_short(video_path):
 async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,credential_file_path):
     """Upload video to YouTube with metadata"""
     try:
+        
         dataval = prompt
         
         folder_path = os.path.join(settings.MEDIA_ROOT,email)
@@ -302,14 +304,11 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
         print(full_credential_file_path)
         # service = await asyncio.to_thread(get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path))
         service = get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path)
-
-        
-
         ### LOOPING SHOULD BEGGIN HERE
-
         #print(json.dumps(bodyval,indent=4))
         # Upload video
         #### LOOP STARTS HERE
+        print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀')
         position = 0
         video_id_list = []
         for items in dataval:
@@ -368,7 +367,8 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
                 )
                     
             position += 1
-        
+
+        print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
         return {
             'type': 'success',
             'status': 'success',
