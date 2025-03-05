@@ -210,6 +210,54 @@ class FileUploadView(APIView):
                 f.write(file_data)
         return Response( status=status.HTTP_200_OK)
 
+from django.http import JsonResponse
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+import os
+from google_auth_oauthlib.flow import Flow
+
+redisConnection = settings.REDIS_CONNECTION 
+
+def oauth_callback(request):
+    """Handle OAuth response, fetch access token, and store credentials."""
+    
+    # Extract OAuth state from request
+    state = request.GET.get('state')
+
+    # Search Redis for matching OAuth flow
+    matching_keys = redisConnection.keys("oauth_flow:*")
+    email = None
+    for key in matching_keys:
+        data = json.loads(redisConnection.get(key))
+        if data["flow_state"] == state:
+            email = data["email"]
+            redisConnection.delete(key)  # Remove stored state after use
+            break
+
+    if not email:
+        return JsonResponse({'error': 'Invalid OAuth state or expired request'}, status=400)
+
+    # Define folder paths
+    token_path = os.path.join(settings.MEDIA_ROOT, email, 'token.json')
+    credential_file_path = data['client_secrets_file']
+
+    # Create OAuth Flow again
+    flow = Flow.from_client_secrets_file(
+        credential_file_path,
+        scopes=['https://www.googleapis.com/auth/youtube.upload'],
+        redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI
+    )
+
+    # Fetch access token
+    flow.fetch_token(authorization_response=request.build_absolute_uri())
+    credentials = flow.credentials
+
+    # Store token in a JSON file
+    with open(token_path, 'w') as token_file:
+        token_file.write(credentials.to_json())
+
+    return JsonResponse({'message': 'OAuth authentication successful!'})
+
 
 def delete_file(file_path: str):
     """Asynchronously delete a file if it exists."""

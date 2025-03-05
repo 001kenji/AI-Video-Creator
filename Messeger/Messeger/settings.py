@@ -36,7 +36,10 @@ CHANNEL_LAYERS = {
         },
     },
 }
-redisConnection = redis.StrictRedis(host='localhost',port=6379,db=0)
+GOOGLE_OAUTH_REDIRECT_URI = f"{os.environ.get('HostPath','http://127.0.0.1:8000')}/oauth/callback/"  # Update this to your actual redirect URI
+
+REDIS_CONNECTION  = redis.StrictRedis(host='localhost',port=6379,db=0,decode_responses=True)
+
 JsonRedisConnection = '' #redis.StrictRedis(host='redis-18769.c336.samerica-east1-1.gce.redns.redis-cloud.com',password = 'LQeYmcBD0b6aVYyvL4KjqhHZ0K2YUeEF',port=18769)
 #Application definition
 

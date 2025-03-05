@@ -57,9 +57,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
     const AiVoiceRef = useRef(null)
     const [PostContentContainer,SetPostContentContainer] = useState({
         'FirstStepLevel' : 1,
-        'SecondStepLevel' : 2,
+        'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 2,
+        'progressLevel' : 1,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
@@ -164,7 +164,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 }
               ]
             }
-          ],
+        ],
         'UploadedVideoId' : []
     })
     const SocialMediaNumberVideosOptions = [

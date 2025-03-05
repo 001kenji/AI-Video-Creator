@@ -20,10 +20,11 @@ from django.shortcuts import redirect
 from django.views.generic.base  import TemplateView
 from django.conf import settings
 from django.conf.urls.static import static
-from Chat.views import get_csrf_token
+from Chat.views import get_csrf_token,oauth_callback
 urlpatterns = [
     #path('admin/logout/', lambda request: redirect('/logout/', permanent=False)),
     path('admin/', admin.site.urls),
+    path('oauth/callback/', oauth_callback, name='oauth_callback'),
     path("cred/csrfToken/", get_csrf_token, name="get-csrf-token"),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),

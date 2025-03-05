@@ -1,5 +1,6 @@
 # chat/consumers.py
 import json,threading,datetime,aiohttp,requests, asyncio
+import redis
 from django.core.files.storage import FileSystemStorage
 import time,os,shutil, asyncio,base64
 from django.conf import settings, Settings
@@ -20,12 +21,16 @@ from asyncio import Task, gather, CancelledError
 import pollinations as pollinationsAi
 from aiobreaker import CircuitBreaker
 from PIL import Image, ImageDraw, ImageFont
+from django.shortcuts import redirect
+from django.conf import settings
 ## Youtube imports
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+
 from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import Flow
 from thumbnails import Thumbnail,get_thumbnail
 from io import BytesIO
 from moviepy import VideoFileClip
@@ -245,42 +250,80 @@ async def RequestCreateImagesFunc(prompt,email,SocialMediaType):
         return reponseval
 
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# Redis connection
+redisConnection = settings.REDIS_CONNECTION 
+# redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
 
-def get_authenticated_service(credential_file_path,token_path):
-    """Authenticate and return YouTube service"""
-    print(1)
+def get_authenticated_service(email, credential_file_path, token_path):
+    """Authenticate and return YouTube service with persistent authentication"""
 
+    # If token exists, load it to avoid re-authentication
+    credentials = None
     if os.path.exists(token_path):
-        os.remove(token_path)
+        print("🔑 Loading existing token...")
+        with open(token_path, 'r') as token_file:
+            credentials_data = json.load(token_file)
+            credentials = Credentials.from_authorized_user_info(credentials_data, SCOPES)
+        
 
-    # Load client secrets file, put the path of your file
-    client_secrets_file = credential_file_path
+    # If credentials are invalid, refresh or re-authenticate
+    if not credentials or not credentials.valid:
+        if credentials and credentials.expired and credentials.refresh_token:
+            try:
+                print("🔄 Refreshing token...")
+                credentials.refresh(Request())
+            except Exception as e:
+                print(f"⚠ Token refresh failed: {e}")
+                credentials = None
 
-    print(2)
-    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, SCOPES,
-        redirect_uri = "http://localhost:8080"
-        )
-    print(2.5,flow,flow.redirect_uri)
-    credentials = flow.run_local_server(
-        port=8080,
-        open_browser=True,
-        redirect_uri_trailing_slash=False  # Ensure no trailing slash
-    )
-    print(3)
-    youtube = googleapiclient.discovery.build(
-        "youtube", "v3", credentials=credentials)
-    print(4)
+        if not credentials:
+            print("🔐 New authentication required...")
+
+            # Load client secrets file
+            client_secrets_file = credential_file_path
+
+            # Create OAuth Flow
+            print('Create OAuth Flow')
+            flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                client_secrets_file, SCOPES
+            )
+
+            # Generate unique key for Redis (to track authentication state)
+            auth_key = f"oauth_flow:{email}"
+
+            # Store authentication state in Redis
+            print('Store authentication state in Redis')
+            auth_url, state = flow.authorization_url(
+                access_type="offline",  # ✅ Ensures refresh token is issued
+                prompt='consent')
+            redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)  # Expires in 5 minutes
+
+            # Authenticate user via local server (non-blocking)
+            print('Authenticate user via local server (non-blocking)')
+            credentials = flow.run_local_server(
+                port=8080,
+                open_browser=True,
+                redirect_uri_trailing_slash=False
+            )
+
+        # Save new token for future use
+        print('ave new token for future use')
+        with open(token_path, 'w') as token_file:
+            token_file.write(credentials.to_json())
+
+    # Build YouTube service
+    print("✅ Authentication successful!")
+    youtube = googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+    print('returning youtube build googleapi')
     return youtube
+
 
 def is_video_a_short(video_path):
     """Check if the video is a YouTube Short"""
     try:
         clip = VideoFileClip(video_path)
         duration = clip.duration  # Duration in seconds
-        
-
         # YouTube Shorts criteria:
         # - Duration <= 60 seconds
         is_short = (duration <= 60) 
@@ -301,9 +344,8 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
         full_credential_file_path = os.path.join(folder_path, credential_file_path)
         full_token_path = os.path.join(folder_path, 'token.json')
         
-        print(full_credential_file_path)
-        # service = await asyncio.to_thread(get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path))
-        service = get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path)
+        # Try using stored credentials
+        service = get_authenticated_service(email = email,credential_file_path = full_credential_file_path,token_path=full_token_path)
         ### LOOPING SHOULD BEGGIN HERE
         #print(json.dumps(bodyval,indent=4))
         # Upload video
