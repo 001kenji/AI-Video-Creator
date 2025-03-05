@@ -38,8 +38,7 @@ import googleapiclient.http
 asyncCircuitBreaker = CircuitBreaker(fail_max=5, timeout_duration=60)
 YoutubeCustomPrompt = """    
     strictly following YouTube's API schema for video uploads. Follow these rules:
-    1. generating the object it should write for me a 1 minute script in general of the list it has generated then add the script in the adday with key and pair value of '{"script" : ""}' at the end of the array
-    2. Each object MUST include:
+    1. Each object MUST include:
     - A `snippet` object with:
         * `title` (string, 1-100 characters)
         * `description` (string, 0-5000 characters)
@@ -49,8 +48,14 @@ YoutubeCustomPrompt = """
         * `privacyStatus` (ONLY "public", "private", or "unlisted")
         * `madeForKids` (boolean) true
         * `selfDeclaredMadeForKids` true
+    - A `audio` object with:
+        * `script` write a 1 minute script in general of this object. The script should be a professional script and only words alone
+    - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
+        * `name` a custom image name with '.jpg' extension. A name should not repeated it should be unique
+        * `description` an image description for this object video description that can be used for this object video and should match it
+        
 
-    3. Structure EXACTLY like this:
+    2. Structure EXACTLY like this:
     ```json
     {
     "snippet": {
@@ -63,98 +68,32 @@ YoutubeCustomPrompt = """
         "privacyStatus": "private",
         "madeForKids": false,
         "selfDeclaredMadeForKids": True
+    },
+    "audio": {
+        "script": "Text here"
+    },
+    "ImageList": [
+            {
+                "name" : "Text here",
+                "description" : "Text here"
+            }
+        ]
     }
-    }
-    { "script": ""
-    }
-    4. Provide the spesified number of examples distinctively with:
+    
+    3. Provide the spesified number of examples distinctively with:
         - Different YouTube categories
         - Varied privacyStatus values
         - Relevant tags matching the title/description
+        - Relevant images description matching their parent object description
         `;
 """
-TiktokCustomPrompt = """
-    strictly following TikTok's API schema for video uploads. Follow these rules:  
-    1. generating the object it should write for me a 1 minute script in general of the list it has generated then add the script in the adday with key and pair value of '{"script" : ""}' at the end of the array
-
-    2. Each object MUST include:  
-    - A `post_info` object with:  
-        * `title` (string, 1-150 characters)  
-        * `description` (string, 0-5000 characters)
-        * `privacy_level` (ONLY "PUBLIC", "FRIENDS", or "PRIVATE")  
-        * `disable_comment` (boolean)  
-        * `disable_duet` (boolean)  
-        * `disable_stitch` (boolean)  
-        * `video_cover_timestamp_ms` (number ≥ 0, timestamp for cover frame in milliseconds)  
-    - A `source_info` object with:  
-        * `source` (ONLY "FILE_UPLOAD" or "PULL_FROM_URL")  
-        * `video_size` (number > 0, file size in bytes)  
-        * `chunk_size` (number > 0, e.g., 1048576 for 1MB chunks)  
-        * `total_chunk_count` (number > 0, derived from video_size / chunk_size)  
-
-    3. Structure EXACTLY like this:  
-    ```json  
-    {  
-    "post_info": {  
-        "title": "Text here",  
-        "privacy_level": "PUBLIC",  
-        "disable_comment": false,  
-        "disable_duet": false,  
-        "disable_stitch": false,  
-        "video_cover_timestamp_ms": 1000,
-        "description": "Text here",  
-    },  
-    "source_info": {  
-        "source": "FILE_UPLOAD",  
-        "video_size": 12345678,  
-        "chunk_size": 1048576,  
-        "total_chunk_count": 12  
-    }  
-    }
-    { "script": ""
-    }  
-    4. Provide the spesified number of examples distinctively with:
-        - Varied privacy_level values
-        - Relevant tags matching the title/description
-        `;
-"""
-
 
 @asyncCircuitBreaker
 async def RequestAIResponseFunc(prompt,email):
     """Generate AI text content asynchronously."""
     try:
         model = settings.AI_MODEL
-        demodata = [
-            {
-                "title": "Exploring the Future of AI",
-                "description": "In this video, we explore the latest advancements in AI and how they shape our future. Don't forget to like and subscribe!",
-                "tags": ["AI", "Technology", "Future", "Machine Learning"],
-                "categoryId": "28", 
-                "privacyStatus": "public",
-                "videoFilePath": "/path/to/ai_video.mp4",
-                "thumbnailFilePath": "/path/to/ai_thumbnail.jpg"
-            },
-            {
-                "title": "10-Minute Home Workout for Beginners",
-                "description": "A quick and effective home workout routine for beginners. Get fit in just 10 minutes!",
-                "tags": ["Workout", "Fitness", "Home Exercise", "Health"],
-                "categoryId": "17",
-                "privacyStatus": "private",
-                "videoFilePath": "/path/to/workout_video.mp4",
-                "thumbnailFilePath": "/path/to/workout_thumbnail.jpg"
-            },
-            {
-                "title": "React.js Tutorial for Beginners",
-                "description": "Learn the basics of React.js in this step-by-step tutorial. Perfect for beginners!",
-                "tags": ["React", "JavaScript", "Web Development", "Programming"],
-                "categoryId": "27",
-                "privacyStatus": "unlisted",
-                "videoFilePath": "/path/to/react_tutorial.mp4",
-                "thumbnailFilePath": "/path/to/react_thumbnail.jpg"
-            }
-        ]
-
+      
         response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
         #print(response,type(response))
         cleaned_json_string = response.text.strip("```json\n").strip("```")
@@ -168,6 +107,21 @@ async def RequestAIResponseFunc(prompt,email):
     except Exception as e:
         print(e)
         reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue with your request. Try again later'}
+        return reponseval
+
+@asyncCircuitBreaker
+async def RequestRequestClearServer(email):
+    """Generate AI text content asynchronously."""
+    try:
+        folder_path = os.path.join(settings.MEDIA_ROOT, email,'youtube')
+        if os.path.exists(folder_path):
+            shutil.rmtree(folder_path)
+        
+        reponseval = {'type' : 'success','result' : 'Files cleared successfuly'}
+        return reponseval
+    except Exception as e:
+        print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue while clearing your files. That shouldn\'t worry you'}
         return reponseval
 
 
@@ -212,12 +166,12 @@ async def download_image(image_url, filename,emailval,SocialMediaType):
                 #print('folder path: ',folder_path)
                 #print('saving beggins .......')
                 custom_storage = FileSystemStorage(location=folder_path)
-                with custom_storage.open(f'{filename}.jpg', 'wb') as file:
+                with custom_storage.open(f'{filename}', 'wb') as file:
                     file.write(content)
                 
-                print(f'Download Completed: {filename}.jpg')
+                print(f'\n\nDownload Completed: {filename}.jpg ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
             else:
-                print(f'Failed to download {filename}.jpg')    
+                print(f'\n\nFailed to download {filename}.jpg ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌')    
     return filename
 
 
@@ -245,39 +199,42 @@ async def generate_image_async(description, title):
 async def RequestCreateImagesFunc(prompt,email,SocialMediaType):
     """Generate AI images content asynchronously."""
     try:
-        i = 0
+        
+        loopval = 0
         dataval = prompt
         social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email,SocialMediaType)
         if not os.path.exists(social_media_folder_path):
-                    os.mkdir(social_media_folder_path)
+            os.mkdir(social_media_folder_path)
         else:
             shutil.rmtree(social_media_folder_path)
             os.mkdir(social_media_folder_path)
             
         for items in dataval:
-            print(f'\n\n{i}\n\n')
-            if SocialMediaType == 'youtube':
-                snippet = items.get("snippet", {})  # Get snippet dictionary safely
-            elif SocialMediaType == 'tiktok':
-                snippet = items.get("post_info", {})  # Get post_info safely
+            objectval = items.get("ImageList", [])
+            i = 0
+            for objectval_items in objectval:
+                print(f'\n\n{i} - {objectval_items}\n\n')           
+                title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
+                # Image details
+                ImageDescription = objectval_items.get("description", "A beautiful natural scene")
+                width = 1024
+                height = 1024
+                seed = 42 # Each seed generates a new image variation
+                model = 'flux' # Using 'flux' as default if model is not provided
 
-            title = snippet.get("title", f'{i}_{email}')  # Fallback title  
-            # Image details
-            ImageDescription = snippet.get("description", "A beautiful natural scene")
-            width = 1024
-            height = 1024
-            seed = 42 # Each seed generates a new image variation
-            model = 'flux' # Using 'flux' as default if model is not provided
+                API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
+                
+                # Generate image URL asynchronously
+                await generate_image_async(ImageDescription, title)
+                await download_image(API_image_url, title,email,SocialMediaType)
+                storage_name = f'{email}/{SocialMediaType}/{title}'
+                print(f'\n\nAt object {loopval} generated {title}')
 
-            API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
-            
-            # Generate image URL asynchronously
-            await generate_image_async(ImageDescription, title)
-            await download_image(API_image_url, title,email,SocialMediaType)
-            storage_name = f'{email}/{SocialMediaType}/{title}.jpg'
-            items['ImageUrl'] = storage_name
-            
-            i += 1
+                i += 1
+                print(f'\n\nRemainig loops {loopval}/{len(dataval)} objects and {i}/{len(objectval)} images')
+
+            loopval += 1
+
        
         reponseval = {'type' : 'success','status' : 'success','result' : 'All images processed','data' : dataval}
         return reponseval
@@ -336,12 +293,8 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
     """Upload video to YouTube with metadata"""
     try:
         dataval = prompt
-        full_video_path = os.path.join(settings.MEDIA_ROOT, VideoUrl)
+        
         folder_path = os.path.join(settings.MEDIA_ROOT,email)
-        bodyval = prompt[0]
-        
-        del bodyval['ImageUrl']
-        
         # Get authenticated service
         full_credential_file_path = os.path.join(folder_path, credential_file_path)
         full_token_path = os.path.join(folder_path, 'token.json')
@@ -350,68 +303,81 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
         # service = await asyncio.to_thread(get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path))
         service = get_authenticated_service(credential_file_path = full_credential_file_path,token_path=full_token_path)
 
-        if not os.path.exists(full_video_path):
-            raise FileNotFoundError(f"Video file missing: {full_video_path}")
+        
+
+        ### LOOPING SHOULD BEGGIN HERE
 
         #print(json.dumps(bodyval,indent=4))
         # Upload video
+        #### LOOP STARTS HERE
+        position = 0
+        video_id_list = []
+        for items in dataval:
+            full_video_path = os.path.join(settings.MEDIA_ROOT, VideoUrl[position])
 
-        media = MediaFileUpload(full_video_path, 
-                              chunksize=-1,
-                              resumable=True,)
-        
-        insert_request = service.videos().insert(
-            part="snippet,status",
-            body={
-                "snippet": bodyval["snippet"],
-                "status": bodyval["status"]
-            },
-            media_body=media
-        )
-        
-        # Execute async upload
-        response = await asyncio.to_thread(insert_request.execute)
-        def execute_request():
-            print('uploading starts: ')
-            response = None
-            while response is None:
-                status, response = insert_request.next_chunk()
-                if status:
-                    print(f"Upload {int(status.progress() * 100)}%")
-            return response
-        
-        response = await asyncio.to_thread(execute_request)
-
-        print(f"Video uploaded with ID: {response['id']}")
-        video_id = response['id']
-        
-        # Before thumbnail upload
-        is_short = is_video_a_short(full_video_path)  # Implement this function
-        if not is_short:
-            thumbnail_path = os.path.join(settings.MEDIA_ROOT, email,'thumbnail.jpeg')
-
-            if not os.path.exists(thumbnail_path):
-                raise FileNotFoundError(f"Thumbnail missing: {thumbnail_path}")
-
-            # Upload thumbnail
+            if not os.path.exists(full_video_path):
+                raise FileNotFoundError(f"Video file missing: {full_video_path}")
+            media = MediaFileUpload(full_video_path, 
+                                chunksize=-1,
+                                resumable=True,)
             
-            media_thumbnail = MediaFileUpload(thumbnail_path)
-            await asyncio.to_thread(
-                service.thumbnails().set(
-                    videoId=video_id,
-                    media_body=media_thumbnail
-                ).execute
+            insert_request = service.videos().insert(
+                part="snippet,status",
+                body={
+                    "snippet": items.get("snippet", {}),
+                    "status": items.get("status", {})
+                },
+                media_body=media
             )
+            
+            # Execute async upload
+            response = await asyncio.to_thread(insert_request.execute)
+            def execute_request():
+                print('uploading starts: ')
+                response = None
+                while response is None:
+                    status, response = insert_request.next_chunk()
+                    if status:
+                        print(f"Upload {int(status.progress() * 100)}%")
+                return response
+            
+            response = await asyncio.to_thread(execute_request)
+
+            print(f"Video uploaded with ID: {response['id']}")
+            video_id = response['id']
+            video_id_list.append(video_id)
+            
+            # Before thumbnail upload
+            is_short = is_video_a_short(full_video_path)  # Implement this function
+            if not is_short:
+                ##### CHANGE THIS
+                thumbnail_position = 0
+                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email,f'{thumbnail_position}_thumbnail.jpeg')
+
+                if not os.path.exists(thumbnail_path):
+                    print('thumbnail not found')
+                else:
+                    # Upload thumbnail
+                    
+                    media_thumbnail = MediaFileUpload(thumbnail_path)
+                    await asyncio.to_thread(
+                        service.thumbnails().set(
+                            videoId=video_id,
+                            media_body=media_thumbnail
+                        ).execute
+                )
+                    
+            position += 1
         
         return {
             'type': 'success',
             'status': 'success',
             'result': f'Video uploaded to {SocialMediaType} successfully',
-            'video_id': video_id
+            'video_id': video_id_list
         }
         
     except Exception as e:
-        print(f"Upload error: {str(e)}")
+        print(f"Upload error: {str(e)} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
         return {
             'type': 'error',
             'status': 'error',
@@ -658,8 +624,10 @@ class AIConsumer(AsyncWebsocketConsumer):
         if(message == 'RequestAIResponse'):
                 email = sanitize_string(text_data_json['email'])
                 promptConstructed = text_data_json['prompt']
-                SocialMediaPromptSelected = YoutubeCustomPrompt if promptConstructed['socialMedia'] == 'youtube' else TiktokCustomPrompt
-                prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
+                numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                SocialMediaPromptSelected = YoutubeCustomPrompt
+                image_list_script = f'each objects ImageList should have {numberOfImagesPerObject} objects'
+                prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected} {image_list_script}'    
                 # Track the task
                 task = asyncio.create_task(self.handle_request_ai_response(prompt, email))
                 self.tasks.add(task)
@@ -682,10 +650,19 @@ class AIConsumer(AsyncWebsocketConsumer):
                 task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,credential_file_path=GoogleAPICredentialFile))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestClearServer'):
+                email = sanitize_string(text_data_json['email'])
+                # Track the task
+                task = asyncio.create_task(self.handle_request_clear_server(email))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
 
     async def handle_request_ai_response(self, prompt, email):
         val = await RequestAIResponseFunc(prompt=prompt, email=email)
         await self.send_msg(data=val, type='RequestAIResponse')
+    async def handle_request_clear_server(self, email):
+        val = await RequestRequestClearServer(email=email)
+        await self.send_msg(data=val, type='RequestClearServer')
     async def handle_request_create_images(self, prompt, email,SocialMediaType):
         val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType)
         await self.send_msg(data=val, type='RequestCreateImages')

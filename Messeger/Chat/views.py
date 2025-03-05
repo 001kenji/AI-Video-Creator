@@ -290,65 +290,75 @@ class MergeView(APIView):
             audio_duration = audio_clip.duration  # Get duration in seconds
             audio_clip.close()
 
-            # Extract image paths
-            image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT, item.get("ImageUrl", "").strip())) for item in dataval if "ImageUrl" in item]
-            # for path in image_paths:
-            #         print(path)  # This will show single backslashes
-
-            num_images = len(image_paths)
-            if num_images == 0:
-                responseval = {'failed' : 'There were no images identified'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+            position = 0
+            response_url = []
             
-            # Calculate duration per image
-            duration_per_image = audio_duration / num_images
+            for items in dataval:
+                print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
+                # Extract image paths
+                image_image_list = items.get("ImageList", "")
+                print(image_image_list)
+                
+                image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,'youtube', item.get("name", "").strip())) for item in image_image_list if "name" in item]
+                # for path in image_paths:
+                #         print(path)  # This will show single backslashes
 
-            # Create FFmpeg-compatible text file for images
-            image_list_file = os.path.join(folder_path, f"{emailval}_images.txt")
-            delete_file(image_list_file)
-            with custom_storage.open(f"{emailval}_images.txt", 'w') as f:
-                for img in image_paths:
-                    img = img.replace("\\", "/")  # Convert to forward slashes
-                    f.write(f"file '{img}'\n")
-                    f.write(f"duration {duration_per_image}\n")
-                    # last_img = image_paths[-1].replace("\\", "/")
-                    # f.write(f"file '{last_img}'\n")  # Ensure last image is explicitly added
-      
-           
-            # Define output video paths
+                num_images = len(image_paths)
+                if num_images == 0:
+                    responseval = {'failed' : 'There were no images identified'}
+                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+                
+                # Calculate duration per image
+                duration_per_image = audio_duration / num_images
+
+                # Create FFmpeg-compatible text file for images
+                image_list_file = os.path.join(folder_path, f"{emailval}_images.txt")
+                delete_file(image_list_file)
+                with custom_storage.open(f"{emailval}_images.txt", 'w') as f:
+                    for img in image_paths:
+                        img = img.replace("\\", "/")  # Convert to forward slashes
+                        f.write(f"file '{img}'\n")
+                        f.write(f"duration {duration_per_image}\n")
+                        
             
-            video_no_audio = os.path.join(folder_path,f'{audio_name_no_extension[0]}_no_audio.mp4')
-            final_video = os.path.join(folder_path,f'{audio_name_no_extension[0]}_with_audio.mp4')
-            delete_file(video_no_audio)
-            delete_file(final_video)
-            # print(video_no_audio,final_video)
-            # Generate video from images
-            print('Generate video from images')
-            ffmpeg.input(image_list_file, format='concat', safe=0) \
-                .output(video_no_audio, vcodec='libx264', pix_fmt='yuv420p', r=25) \
-                .run(overwrite_output=True)
+                # Define output video paths
+                custom_videos_name = f'{audio_name_no_extension[0]}_{position}'
+                video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
+                final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
+                delete_file(video_no_audio)
+                delete_file(final_video)
+                # print(video_no_audio,final_video)
+                # Generate video from images
+                print('Generate video from images')
+                ffmpeg.input(image_list_file, format='concat', safe=0) \
+                    .output(video_no_audio, vcodec='libx264', pix_fmt='yuv420p', r=25) \
+                    .run(overwrite_output=True)
+                
+
+                # Merge video with audio
+                print('Merge video with audio')
+                (
+                    ffmpeg
+                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
+                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
+                    .run(overwrite_output=True)
+                )
+                # genearate video thumbnail
+                image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
+                print(image_url_thumbnail) 
+                if image_url_thumbnail != False:
+                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
+                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
+                    #delete an existing thumbnail
+                    delete_file(thumbnail_path)
+                    print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
+                    create_thumbnail(image_url_thumbnail_val, thumbnail_path)
+                
+                response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
+                position += 1
+                print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+
             
-
-            # Merge video with audio
-            print('Merge video with audio')
-            (
-                ffmpeg
-                .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
-                .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                .run(overwrite_output=True)
-            )
-            # genearate video thumbnail
-            image_url_thumbnail = dataval[0]['ImageUrl'] if dataval[0]['ImageUrl'] else False
-            print(image_url_thumbnail,dataval[0]['ImageUrl']) 
-            if image_url_thumbnail != False:
-                image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,image_url_thumbnail)
-                thumbnail_path= os.path.join(folder_path,"thumbnail.jpeg") 
-                #delete an existing thumbnail
-                delete_file(thumbnail_path)
-                print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
-                create_thumbnail(image_url_thumbnail_val, thumbnail_path)
-
-            response_url = f'{emailval}/{SocialMediaType}/{audio_name_no_extension[0]}_with_audio.mp4'
             return Response({
                 'success' : 'Your video is successfuly created',
                 "video_url": response_url
@@ -357,5 +367,5 @@ class MergeView(APIView):
                
         except Exception as e:
             print(e)
-            responseval = {'failed' : 'Error occured when processing your request'}
+            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
             return Response(responseval,status=status.HTTP_400_BAD_REQUEST)

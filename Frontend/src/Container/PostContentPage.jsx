@@ -10,6 +10,7 @@ import { MdContentCopy } from "react-icons/md";
 import { json } from "@codemirror/lang-json";
 import { linter, lintGutter } from "@codemirror/lint";
 import { LuCornerUpLeft } from "react-icons/lu";
+import { IoChevronUpOutline, IoChevronDownOutline } from "react-icons/io5";
 import { LuCornerUpRight, LuGithub } from "react-icons/lu";
 import { lineNumbers } from "@codemirror/view";
 import { connect, useDispatch } from "react-redux";
@@ -29,7 +30,8 @@ import { AiVideoMergeUrlReducer } from "../actions/types";
 const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) => {
     const {register,formState,reset,getValues,setValue,watch} = useForm({
         defaultValues : {
-            'AIprompt' : '',         
+            'AIprompt' : '',
+            'ClearServer' : true         
         },
         mode : 'all'
     })
@@ -56,16 +58,17 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         'FirstStepLevel' : 1,
         'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 3,
+        'progressLevel' : 1,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
         'MaximumSocialMediaSelected' : 1,
         'ModeValue' : 'AI',
         'SocialMediaNumberVideosOptions' : [],
+        'SocialMediaNumberImagesOptions' : [],
         'VideoListDetails' : '',
         'VideoListDetailsWithImages' : [],
-        'UploadedVideoId' : ''
+        'UploadedVideoId' : ['I6lFhJS9XFs','adff32323d']
     })
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
@@ -79,12 +82,27 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         { value: "9", label: "9 videos",name : 'SocialMediaNumberVideosOptions' },
         { value: "10", label: "10 videos",name : 'SocialMediaNumberVideosOptions' },
     ];
+    const SocialMediaNumberImagesOptions = [
+        { value: "1", label: "1 image",name : 'SocialMediaNumberImagesOptions' },
+        { value: "2", label: "2 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "3", label: "3 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "4", label: "4 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "5", label: "5 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "6", label: "6 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "7", label: "7 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "8", label: "8 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "9", label: "9 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "10", label: "10 images",name : 'SocialMediaNumberImagesOptions' },
+    ];
     const [ProfileAboutContainer,SetProfileAboutContainer] = useState({
             'GoogleAPICredentialFile' : null
     })
    
     const [SelectedVideoImageCarousel,SetSelectedVideoImageCarousel] = useState(0)
-    const UploadProfilePost = useRef(null)
+    const [SelectedVideoScriptCarousel,SetSelectedVideoScriptCarousel] = useState(0)
+    const [SelectedVideoYoutubeIdCarousel,SetSelectedVideoYoutubeIdCarousel] = useState(0)
+    const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
+    const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
     const WsDataStream = useRef(null)
     const Theme = useSelector((state)=> state.auth.Theme)  
 
@@ -103,7 +121,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
     },[db,extrainfo])
     
     useEffect(() => {
-        if (AiVideoMergeUrl != null && AiVideoMergeUrl != false &&  AiVideoMergeUrl != 'error'){
+        if (AiVideoMergeUrl.length != 0){
             SetPostContentContainer((e)=> {
                 return {
                     ...e,
@@ -114,24 +132,21 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 }
             })
             
-        }else if (AiVideoMergeUrl == 'error'){
+        }else if (AiVideoMergeUrl.length == 0){
             
-            dispatch({
-                type : AiVideoMergeUrlReducer,
-                payload : null
-            })
-            ShowToast('warning','Failed to fetch AI-generated image')
-            setTimeout(() => {
-                SetPostContentContainer((e)=> {
-                    return {
-                        ...e,
-                        'SecondStepLevel' : 1,
-                        'progressLevel' : 1,
-                        'ThirdStepLevel' : 1,
-                        'LoadingVideoList' : false
-                    }
-                })
-            }, 1000);
+            
+            // ShowToast('warning','Failed to fetch AI-generated image')
+            // setTimeout(() => {
+            //     SetPostContentContainer((e)=> {
+            //         return {
+            //             ...e,
+            //             'SecondStepLevel' : 1,
+            //             'progressLevel' : 1,
+            //             'ThirdStepLevel' : 1,
+            //             'LoadingVideoList' : false
+            //         }
+            //     })
+            // }, 1000);
         }
     },[AiVideoMergeUrl])
 
@@ -251,7 +266,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 })
             }
     } 
-    //console.log(PostContentContainer.VideoListDetailsWithImages)
+   
     const requestWsStream = (msg = null,body = null) => {    
        
         if(msg =='open'){
@@ -277,15 +292,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 var val = data.message
                 if (val['type'] == 'success') {
                     var Listval = val['result']
-                    var customScript = Listval[Listval.length -1].script ? Listval[Listval.length -1].script : 'no script generated'
-                    Listval[Listval.length -1].script ? Listval.pop() : ''
+                    
                     var videoList = JSON.stringify(Listval , null, 2);
                     SetPostContentContainer((e) => {
                         return {
                             ...e,
                             'VideoListDetails' : videoList,
                             'LoadingVideoList' : false,
-                            'CustomAiAdioScript' : customScript,
                             'FirstStepLevel' : 2,
                             'progressLevel' : 1,
                         }
@@ -330,36 +343,39 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                     ShowToast(val['type'],val['result'])
                 }
            }else if(data.type == 'RequestUploadVideos'){
-            var val = data.message
-            if (val['type'] == 'success') {
-                //console.log(val)
-                // console.log(typeof(videoList),videoList)
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'ThirdStepLevel' : 2,
-                        'progressLevel' : 3,
-                        'LoadingVideoList' : false,
-                        'UploadedVideoId' : val.video_id
-                    }
-                })
-                dispatch({
-                    type : AiVideoMergeUrlReducer,
-                    payload : null
-                })
-                ShowToast(val['type'],val['result'])
-            }else {
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'ThirdStepLevel' : 1,
-                        'progressLevel' : 3,
-                        'LoadingVideoList' : false
-                    }
-                })
+                var val = data.message
+                if (val['type'] == 'success') {
+                    //console.log(val)
+                    // console.log(typeof(videoList),videoList)
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'ThirdStepLevel' : 2,
+                            'progressLevel' : 3,
+                            'LoadingVideoList' : false,
+                            'UploadedVideoId' : val.video_id
+                        }
+                    })
+                    dispatch({
+                        type : AiVideoMergeUrlReducer,
+                        payload : []
+                    })
+                    ShowToast(val['type'],val['result'])
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'ThirdStepLevel' : 1,
+                            'progressLevel' : 3,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+           }else if(data.type == 'RequestClearServer'){
+                var val = data.message
                 ShowToast(val['type'],val['result'])
             }
-       }
         };
         WsDataStream.current.onopen = (e) => {
             // websocket is opened
@@ -380,7 +396,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                     JSON.stringify({
                         'message' : 'RequestAIResponse',
                         'email' : UserEmail,
-                        'prompt' : body
+                        'prompt' : body,
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value
                     })
                 )
             }else if(msg == 'RequestCreateImages') {
@@ -403,6 +420,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                         'VideoUrl' : AiVideoMergeUrl,
                         'SocialMediaType' : body,
                         'GoogleAPICredentialFile' : ProfileAboutContainer.GoogleAPICredentialFile
+                    })
+                )
+            }else if(msg == 'RequestClearServer') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestClearServer',
+                        'email' : UserEmail
                     })
                 )
             }
@@ -428,7 +453,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                     })
                     var promptConstructed = {
                         'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                        'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects based on this idea '${getValues('AIprompt')} ' `
+                        'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects based on this idea '${getValues('AIprompt')} ' `,
+                       
                     }
                     requestWsStream('RequestAIResponse',promptConstructed)
                 }else {
@@ -524,7 +550,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
     }
     function ToongleThirdProgressLevel(props) {
         if(props == 'Upload'){
-            if(AiVideoMergeUrl == null){
+            if(AiVideoMergeUrl.length == 0){
                 ShowToast('warning','Your video url seams to be empty')
                 return
             }else if(ProfileAboutContainer.GoogleAPICredentialFile == null){
@@ -544,9 +570,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
             }
             
         }else if (props == 'Reset'){
+            if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
+                ShowToast('warning','Unless you login you can\'t clear your server. Uncheck \'Clear\' checkbox to proceed ')    
+                return                
+            }
             dispatch({
                 type : AiVideoMergeUrlReducer,
-                payload : null
+                payload : []
             })
             SetPostContentContainer({
                 'FirstStepLevel' : 1,
@@ -560,9 +590,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 'SocialMediaNumberVideosOptions' : [],
                 'VideoListDetails' : '',
                 'VideoListDetailsWithImages' : [],
-                'UploadedVideoId' : ''
+                'UploadedVideoId' : []
                 
             })
+            if(getValues('ClearServer')){
+                
+                requestWsStream('RequestClearServer')
+                
+            }
+            setValue('ClearServer',true)
         }
     }
     const handleSocialMediaOptionsChange = (selected,val) => {
@@ -622,47 +658,206 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
         
         if (startImageX > endImageX + 50) {
             // User swiped left (Next item)
-            
-            if (SelectedVideoImageCarousel >= PostContentContainer.VideoListDetailsWithImages.length - 1) {
-                SetSelectedVideoImageCarousel(0);
-            } else {
-                SetSelectedVideoImageCarousel((e) => e + 1);
+            if(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList){
+                if (SelectedVideoImage >= PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList.length - 1) {
+                    SetSelectedVideoImage(0);
+                } else {
+                    SetSelectedVideoImage((e) => e + 1);
+                }
             }
+            
         } else if (startImageX < endImageX - 50) {
             // User swiped right (Previous item)
-            if (SelectedVideoImageCarousel === 0) {
-                SetSelectedVideoImageCarousel(PostContentContainer.VideoListDetailsWithImages.length - 1)
-            } else {
-                SetSelectedVideoImageCarousel((e) => e - 1);
+            if(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList){
+                if (SelectedVideoImage === 0) {
+                    SetSelectedVideoImage(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList.length - 1)
+                } else {
+                    SetSelectedVideoImage((e) => e - 1);
+                }
             }
+            
         }
     };
     function ScrollVideoImage (props){
         if(props == 'back') {
-            if (SelectedVideoImageCarousel === 0) {
-                SetSelectedVideoImageCarousel(PostContentContainer.VideoListDetailsWithImages.length - 1)
-            } else {
-                SetSelectedVideoImageCarousel((e) => e - 1);
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList){
+                if (SelectedVideoImage === 0) {
+                SetSelectedVideoImage(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList.length - 1)
+                } else {
+                    SetSelectedVideoImage((e) => e - 1);
+                }
             }
+            
         }else if(props == 'next'){
-            if (SelectedVideoImageCarousel >= PostContentContainer.VideoListDetailsWithImages.length - 1) {
-                SetSelectedVideoImageCarousel(0);
-            } else {
-                SetSelectedVideoImageCarousel((e) => e + 1);
+            if(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList){
+                if (SelectedVideoImage >= PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel].ImageList.length - 1) {
+                    SetSelectedVideoImage(0);
+                } else {
+                    SetSelectedVideoImage((e) => e + 1);
+                }
             }
+           
         }
     }
-    //images of birds, others are flying others are on the nest.also provide short title
-    // const MapImageCarousels = 'sd'
+    function ScrollVideoImageCarousel (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoImageCarousel === 0) {
+                    SetSelectedVideoImageCarousel(PostContentContainer.VideoListDetailsWithImages.length - 1)
+                } else {
+                    SetSelectedVideoImageCarousel((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoImageCarousel >= PostContentContainer.VideoListDetailsWithImages.length - 1) {
+                    SetSelectedVideoImageCarousel(0);
+                } else {
+                    SetSelectedVideoImageCarousel((e) => e + 1);
+                }
+            }
+           
+        }
+    }
+    function ScrollVideoScriptCarousel (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoScriptCarousel === 0) {
+                    SetSelectedVideoScriptCarousel(PostContentContainer.VideoListDetailsWithImages.length - 1)
+                } else {
+                    SetSelectedVideoScriptCarousel((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(PostContentContainer.VideoListDetailsWithImages){
+                if (SelectedVideoScriptCarousel >= PostContentContainer.VideoListDetailsWithImages.length - 1) {
+                    SetSelectedVideoScriptCarousel(0);
+                } else {
+                    SetSelectedVideoScriptCarousel((e) => e + 1);
+                }
+            }
+           
+        }
+    }
+    function ScrollVideoYoutubeIdCarousel (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(PostContentContainer.UploadedVideoId){
+                if (SelectedVideoYoutubeIdCarousel === 0) {
+                    SetSelectedVideoYoutubeIdCarousel(PostContentContainer.UploadedVideoId.length - 1)
+                } else {
+                    SetSelectedVideoYoutubeIdCarousel((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(PostContentContainer.UploadedVideoId){
+                if (SelectedVideoYoutubeIdCarousel >= PostContentContainer.UploadedVideoId.length - 1) {
+                    SetSelectedVideoYoutubeIdCarousel(0);
+                } else {
+                    SetSelectedVideoYoutubeIdCarousel((e) => e + 1);
+                }
+            }
+           
+        }
+    }
+    function ScrollVideoUrlCarousels (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(AiVideoMergeUrl.length != 0){
+                if (SelectedAiVideoMergeUrl === 0) {
+                    SetSelectedAiVideoMergeUrl(AiVideoMergeUrl.length - 1)
+                } else {
+                    SetSelectedAiVideoMergeUrl((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(AiVideoMergeUrl.length != 0){
+                if (SelectedAiVideoMergeUrl >= AiVideoMergeUrl.length - 1) {
+                    SetSelectedAiVideoMergeUrl(0);
+                } else {
+                    SetSelectedAiVideoMergeUrl((e) => e + 1);
+                }
+            }
+           
+        }
+    }
     
-    const MapImageCarousels = PostContentContainer.VideoListDetailsWithImages.map((items,i) => {
+    const MapImageCarousels = ({imagelist = []}) => {
+        // className= {`mask-square h-fit m-auto min-h-fit  max-w-[250px] rounded-md cursor-pointer max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-b-md   `}
+        var lists = imagelist.map((items,i) => {
+                var imageurl = `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/youtube/${items.name}`
+               
+            return (
+                <img key={i} loading="lazy" onClick={()=>ChangeMediaGallary(imageurl,'image')} className= {`mask-square h-full m-auto min-h-full min-w-full max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-md cursor-pointer rounded-b-md   `} src={imageurl}  alt="media not found"/>        
+            )
+        })
+        return lists
+    }
+    const MapImageCarouselsContainer = PostContentContainer.VideoListDetailsWithImages.map((items,i) => {
         
-        var imageurl = `${import.meta.env.VITE_APP_API_URL}/media/${items.ImageUrl}`
+        var imageListval = items.ImageList
+        // {<MapImageCarousels imagelist={imageListval}/>}
       
         return (
-            <img loading="lazy" onClick={()=>ChangeMediaGallary(imageurl,'image')} className= {`mask-square h-fit m-auto min-h-fit  max-w-[250px] rounded-md cursor-pointer max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-b-md   `} src={imageurl}  alt="media not found"/>        
+           <div key={i} className={`flex flex-row gap-0 w-full min-w-full min-h-full bg-transparent h-[250px] transition-all duration-300  overflow-hidden `} >
+               <div className={`flex flex-col gap-0  w-full h-full min-h-full  bg-transparent justify-start overflow-hidden `}>
+                    <div onTouchStart={handleTouchImageStart } onTouchEnd={handleTouchImageEnd } style={{transform: `translateX(-${SelectedVideoImage * 100}%)`}}  className=" rounded-sm flex flex-row h-[90%]  bg-transparent  transition-all ease-in-out duration-300 w-full overflow-visible " >
+                        {<MapImageCarousels imagelist={imageListval}/>}
+                    </div>
+                    {/* left right arrow div */}
+                    <div className=" flex flex-row sm:text-lg w-full mx-auto min-h-[10%] h-fit bg-transparent sm:my-auto justify-center dark:text-gray-400 pt-1 text-slate-700 text-base gap-10 mb-auto " >
+                        <LuCornerUpLeft  onClick={() => ScrollVideoImage('back')} className=" cursor-pointer bg-transparent hover:text-white transition-all  duration-300" />
+                        <LuCornerUpRight  onClick={() => ScrollVideoImage('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                    </div>
+                </div>
+                
+           </div>
         )
     })
+
+    const MapVideoScripts = PostContentContainer.VideoListDetailsWithImages.map((items,i) => { 
+        var script = items.audio.script
+       
+        return (
+            <div key={i} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
+                <button onClick={() => copyToClipboard(script)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                    <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                </button>
+                <textarea className=" text-sm w-full sm:w-[80%] resize-none min-h-[80px] shadow-xs p-1 rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={script}></textarea>
+            </div>
+        )
+    })  
+
+    const MapVideoYoutubeId = PostContentContainer.UploadedVideoId.map((items,i) => { 
+        var script = items
+      
+        return (
+            <div key={i} className={` flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
+                <p className=" text-sm py-1 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
+                <button onClick={() => copyToClipboard(script)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                    <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                </button>
+                <input className=" text-sm w-full h-fit shadow-xs p-2 rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={script} />
+            </div>
+        )
+    })
+ 
+    const MapVideoUrlCarousels = AiVideoMergeUrl.map((items,i) => { 
+       
+        return (
+            <div key={i} className={`flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
+                <video controls className={``} src={`${import.meta.env.VITE_APP_API_URL}/media/${items}`} ></video>
+            </div>
+        )
+    })
+    
     function ClickUploadRepository (props) {
         if(props){
             AiVoiceRef.current.click()
@@ -688,12 +883,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                 console.error("Failed to copy:", err)
             });
     }
-    const HandleAiVideoUrlError = (event) => {
-        dispatch({
-            type : AiVideoMergeUrlReducer,
-            payload : null
-        })
-    }
+    
+    //videos of birds, others are eagles, parots, flamingos and other more
+   
     return (
         <div className={` h-full  bg-transparent min-h-[100vh] py-4 overflow-x-hidden w-full overflow-y-auto relative min-w-full max-w-[100%] flex flex-col justify-between  `} >
             {/*media galary displayer */}
@@ -733,7 +925,19 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                             </ul>
                             {/* information gathare container */}
                             <div className={` ${PostContentContainer.FirstStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit  gap-3 `} >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of images</p>
+                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of images per video</p>
+                                <Select
+                                    isMulti
+                                    options={SocialMediaNumberImagesOptions}
+                                    value={PostContentContainer.SocialMediaNumberImagesOptions}
+                                    onChange={handleSocialMediaOptionsChange}
+                                    name="SocialMediaNumberImagesOptions"
+                                    placeholder="..."
+                                    theme={(theme) => customTagSelectorTheme(theme, Theme)}
+                                    styles={customStyles(Theme)}
+                                    className="max-h-[200px] "
+                                />
+                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of videos</p>
                                 <Select
                                     isMulti
                                     options={SocialMediaNumberVideosOptions}
@@ -761,13 +965,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                         :
-                                            <button disabled={watch('AIprompt') == '' || PostContentContainer.SocialMediaNumberVideosOptions.length == 0} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
+                                            <button disabled={watch('AIprompt') == ''  || PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || PostContentContainer.SocialMediaNumberVideosOptions.length == 0} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
                                     }
 
                                 </div>
                             
                             </div>
-                            {/* video generation */}
+                            {/* details verification and modifications generation */}
                             <div className={` w-full ${PostContentContainer.FirstStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[350px] min-h-fit  gap-3 `}  >
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Verify credibility. Edit if desired</p>
                                 <CodeMirror
@@ -831,28 +1035,41 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
                                 {/*image carousels */}
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Image previews</p>
-                                <div className="flex flex-col sm:flex-row gap-1 justify-center w-full">
-                                    <div className=" w-fit h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div onTouchStart={handleTouchImageStart } onTouchEnd={handleTouchImageEnd } style={{transform: `translateX(-${SelectedVideoImageCarousel * 100}%)`}}  className=" rounded-sm flex flex-row h-fit mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent w-full max-w-[250px] xs:max-w-xs overflow-visible " >{MapImageCarousels}</div>
+                                <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
+                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedVideoImageCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                {MapImageCarouselsContainer}
+                                            </div>
+                                        </div>
+                                        {/* arrow up down div */}
+                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                            <IoChevronUpOutline  onClick={() => ScrollVideoImageCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            <IoChevronDownOutline  onClick={() => ScrollVideoImageCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                        </div>
                                     </div>
-                                    {/* arrow div */}
-                                    <div className=" flex flex-row sm:text-2xl w-[80%] sm:w-fit sm:min-w-fit md:justify-end mx-auto  sm:my-auto justify-center dark:text-gray-400 text-slate-700 text-base gap-10 py-3 mb-auto " >
-                                        <LuCornerUpLeft  onClick={() => ScrollVideoImage('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                        <LuCornerUpRight  onClick={() => ScrollVideoImage('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                        
-                                    </div>
+                                    
                                 </div>
                                 {/* custom scripting */}
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Bellow is a custom 60 sec script you can use to generate your audio</p>
-                                <div className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full justify-start sm:w-fit gap-3`}>
-                                    <button onClick={() => copyToClipboard(PostContentContainer.CustomAiAdioScript)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                        <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                    </button>
-                                    <textarea className=" text-sm w-full resize-none min-h-[80px] shadow-xs p-1 rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={PostContentContainer.CustomAiAdioScript}></textarea>
+                                <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
+                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedVideoScriptCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                {MapVideoScripts}
+                                            </div>
+                                        </div>
+                                        {/* arrow up down div */}
+                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                            <IoChevronUpOutline  onClick={() => ScrollVideoScriptCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            <IoChevronDownOutline  onClick={() => ScrollVideoScriptCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                        </div>
+                                    </div>
+                                    
                                 </div>
                                 {/* upload */}
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload audio to be merged with images created</p>
-                                <div className="flex flex-col justify-start gap-3 w-full h-fit" >
+                                <div className="flex flex-col justify-start sm:pl-8 gap-3 w-full h-fit" >
                                     <input onChange={ToogleAudioUpload} ref={AiVoiceRef} className=" hidden" accept="audio/*"  type="file" />
                                     <div className="flex flex-col sm:flex-row gap-2 justify-between w-full" >
                                         <div className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full justify-start sm:w-fit gap-3`}>
@@ -897,8 +1114,24 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Review your video</p>
-                                <video controls className={`${AiVideoMergeUrl == null || AiVideoMergeUrl == false || AiVideoMergeUrl == '' ? 'hidden' : 'flex'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${AiVideoMergeUrl}`} onError={HandleAiVideoUrlError}></video>
-                                <img className={`${AiVideoMergeUrl == null || AiVideoMergeUrl == false || AiVideoMergeUrl == '' ? 'flex mask mask-squircle max-h-80 max-w-80 mx-auto lg:mr-auto lg:ml-0 ' : 'hidden'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${`media unavailable ${Theme}.jpg`}`}  />
+                                
+                                <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
+                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedAiVideoMergeUrl * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                {MapVideoUrlCarousels}
+                                            </div>
+                                        </div>
+                                        {/* arrow up down div */}
+                                        <div className={` ${AiVideoMergeUrl.length == 1 ? 'hidden':'flex flex-col'} justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base `} >
+                                            <IoChevronUpOutline  onClick={() => ScrollVideoUrlCarousels('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            <IoChevronDownOutline  onClick={() => ScrollVideoUrlCarousels('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                                <img className={`${AiVideoMergeUrl.length == 0  ? 'flex mask mask-squircle max-h-80 max-w-80 mx-auto lg:mr-auto lg:ml-0 ' : 'hidden'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${`media unavailable ${Theme}.jpg`}`}  />
+                                
                                 {/* progressLevel buttons */}
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
                                 <div className=" flex flex-row flex-wrap gap-2 mt-auto w-[90%] max-w-[600px] mx-auto justify-around">
@@ -909,20 +1142,36 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile}) =
                                             <button disabled={false} onClick={() => ToongleThirdProgressLevel('Upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
                                     }
                                 </div>
-
                             </div>
                             {/* logs from submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
                                 <p className=" text-sm py-1 my-auto text-slate-800 dark:text-slate-400 " >Video successfuly uploaded</p>
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Your uploaded video id</p>
-                                <div className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full justify-start sm:w-fit gap-3`}>
-                                    <button onClick={() => copyToClipboard(PostContentContainer.UploadedVideoId)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                        <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                    </button>
-                                    <input className=" text-sm w-full min-h-fit shadow-xs p-2 rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={PostContentContainer.UploadedVideoId} />
+                                
+                                <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
+                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedVideoYoutubeIdCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[100px]  bg-transparent w-full mx-auto  transition-all ease-in-out m-auto duration-300 overflow-y-visible " >
+                                                {MapVideoYoutubeId}
+                                            </div>
+                                        </div>
+                                        {/* arrow up down div */}
+                                        <div className=" flex flex-col justify-around bg-transparent h-fit mt-4 mb-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                            <IoChevronUpOutline  onClick={() => ScrollVideoYoutubeIdCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            <IoChevronDownOutline  onClick={() => ScrollVideoYoutubeIdCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                        </div>
+                                    </div>
+                                    
                                 </div>
+                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Clear my files in Mela server</p>
+                                <label className="label cursor-pointer">
+                                    <span className="label-text text-sm text-slate-800 dark:text-slate-400 mx-3">Clear</span>
+                                    <input {...register('ClearServer',{
+                                        required : false
+                                    })} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
+                                </label>
                                 {/* progressLevel buttons */}
-                                <div className=" flex flex-row flex-wrap gap-2 mt-auto w-[90%] max-w-[600px] mx-auto justify-around">
+                                <div className=" flex flex-row flex-wrap gap-2 mt-4 w-[90%] max-w-[600px] mx-auto justify-around">
                                     <button disabled={false} onClick={() => ToongleThirdProgressLevel('Reset')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restart</button>
                                 </div>
 

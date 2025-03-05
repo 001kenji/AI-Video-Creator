@@ -5,11 +5,7 @@ import {
 }from '../actions/types'
 
 const initialState = {
-    AiVideoMergeUrl : null,
-    AiVideoUrl : '',
-    AiVideoConversionState : null,
-    AiVideoConversionStateResponse : null
-    
+    AiVideoMergeUrl : [],
 };
 
 

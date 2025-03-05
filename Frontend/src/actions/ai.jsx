@@ -8,7 +8,7 @@ import Cookies from 'js-cookie'
 export const PromptMergeVideos = (props) => async dispatch => {
     dispatch({
         type: AiVideoMergeUrlReducer,
-        payload:  false 
+        payload:  [] 
     });
     function AuthFunc(data) {
         const parsedData = data ? JSON.parse(data) : {};
@@ -19,7 +19,7 @@ export const PromptMergeVideos = (props) => async dispatch => {
             });
             dispatch({
                 type: AiVideoMergeUrlReducer,
-                payload:  null 
+                payload:  [] 
             });
         } else {
             dispatch({
@@ -63,7 +63,7 @@ export const PromptMergeVideos = (props) => async dispatch => {
         });
         dispatch({
             type: AiVideoMergeUrlReducer,
-            payload:  'error' 
+            payload:  []
         });
     });
    
