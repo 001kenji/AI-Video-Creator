@@ -390,18 +390,36 @@ class MergeView(APIView):
                     responseval = {'failed' : 'There were no images identified'}
                     return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
                 
+                
                 # Calculate duration per image
                 duration_per_image = audio_duration / num_images
-
-                # Create FFmpeg-compatible text file for images
-                image_list_file = os.path.join(folder_path, f"{emailval}_images.txt")
-                delete_file(image_list_file)
-                with custom_storage.open(f"{emailval}_images.txt", 'w') as f:
-                    for img in image_paths:
-                        img = img.replace("\\", "/")  # Convert to forward slashes
-                        f.write(f"file '{img}'\n")
-                        f.write(f"duration {duration_per_image}\n")
-                        
+                T = audio_duration / num_images
+                transition_duration = 1.0  # duration of each transition in seconds
+                # List to hold each image clip stream
+                streams = []
+                
+                # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
+                for i, img in enumerate(image_paths):
+                    print(f'\n\n Image path {img}')
+                    # For all images we use the same duration (the xfade filter will manage overlapping transitions)
+                    # You may adjust duration per image if you want the last image to have no transition.
+                    stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
+                    streams.append(stream)
+                
+                # Chain the streams using xfade to add smooth transitions.
+                # The offset for the first transition will be (T - transition_duration),
+                # and for each subsequent transition, we add (T - transition_duration).
+                output_stream = streams[0]
+                for i in range(1, len(streams)):
+                    offset = i * (T - transition_duration)
+                    output_stream = ffmpeg.filter(
+                        [output_stream, streams[i]],
+                        'xfade',
+                        transition='fade',           # change to any supported effect, e.g. 'wipeleft'
+                        duration=transition_duration,
+                        offset=offset
+                    )
+                print('\n\n Image streams generated') 
             
                 # Define output video paths
                 if AudioScope == 'AllForAll':
@@ -415,10 +433,15 @@ class MergeView(APIView):
                 delete_file(final_video)
                 # print(video_no_audio,final_video)
                 # Generate video from images
-                print('Generate video from images')
-                ffmpeg.input(image_list_file, format='concat', safe=0) \
-                    .output(video_no_audio, vcodec='libx264', pix_fmt='yuv420p', r=25) \
-                    .run(overwrite_output=True)
+                print('Generate video from images with transitions')
+                
+                ffmpeg.output(
+                    output_stream,
+                    video_no_audio,
+                    vcodec='libx264',
+                    pix_fmt='yuv420p',
+                    r=25
+                ).run(overwrite_output=True)
                 
 
                 # Merge video with audio
