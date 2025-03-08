@@ -13,6 +13,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
 SECRET_KEY = os.environ.get('SECRET_KEY')
+
 import google.generativeai as genai
 
 

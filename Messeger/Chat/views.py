@@ -1,5 +1,5 @@
 from django.shortcuts import render,HttpResponse
-import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob
+import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob,textwrap,shutil
 from django.core.files.storage import default_storage
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -480,43 +480,217 @@ class MergeView(APIView):
             responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
             return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
 
-
-
-def transcribe_and_split_audio(audio_list, num_splits):
-    model = whisper.load_model("base")  # Load Whisper ASR model
-    transcriptions = []
-
-    for audio_path in audio_list:
+@method_decorator(csrf_exempt,name='dispatch')
+class MergeAudioToVideoView(APIView):
+    permission_classes = (IsAuthenticated,)
+    throttle_classes = [fileUploadthrottler]
+    @circuit
+    def post(self, request):        
         try:
-            # Extract audio file name
-            audio_name = os.path.basename(audio_path)
+            data = request.data
+            emailval = sanitize_string(data['email'])
+            dataval = json.loads(data['data'])
+            SocialMediaType = sanitize_string(data['SocialMediaType'])
+            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+            accountref = Account.objects.filter(email = emailval)
+            custom_storage = FileSystemStorage(location=folder_path)
+            if not accountref.exists():
+                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
+                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
+            
+            position = 0
+            response_url = []
+            
+            for items in dataval:
+                print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
+                # Extract image paths
+                image_image_list = items.get("ImageList", "")
+                audio_name = items.get("audio", "fallback.mp3")
+                print(image_image_list)
+                
+                image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,SocialMediaType, item.get("name", "").strip())) for item in image_image_list if "name" in item]
+                # for path in image_paths:
+                #         print(path)  # This will show single backslashes
 
-            # Load and convert audio to wav if necessary
-            audio = AudioSegment.from_file(audio_path)
-            audio.export("temp_audio.wav", format="wav")  # Convert to WAV format
+                num_images = len(image_paths)
+                if num_images == 0:
+                    responseval = {'failed' : 'There were no images identified'}
+                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+                
+                
+                # Calculate duration per image
+                # Extract audio duration
+                custom_storage_audio_path = os.path.join(folder_path,audio_name)
+                audio_clip = AudioFileClip(custom_storage_audio_path)
+                audio_duration = audio_clip.duration  # Get duration in seconds
+                audio_clip.close()
 
-            # Transcribe the audio
-            result = model.transcribe("temp_audio.wav")
-            transcript = result["text"]
+                duration_per_image = audio_duration / num_images
+                T = audio_duration / num_images
+                transition_duration = 1.0  # duration of each transition in seconds
+                # List to hold each image clip stream
+                streams = []
+                
+                # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
+                for i, img in enumerate(image_paths):
+                    print(f'\n\n Image path {img}')
+                    # For all images we use the same duration (the xfade filter will manage overlapping transitions)
+                    # You may adjust duration per image if you want the last image to have no transition.
+                    stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
+                    streams.append(stream)
+                
+                # Chain the streams using xfade to add smooth transitions.
+                # The offset for the first transition will be (T - transition_duration),
+                # and for each subsequent transition, we add (T - transition_duration).
+                output_stream = streams[0]
+                for i in range(1, len(streams)):
+                    offset = i * (T - transition_duration)
+                    output_stream = ffmpeg.filter(
+                        [output_stream, streams[i]],
+                        'xfade',
+                        transition='fade',           # change to any supported effect, e.g. 'wipeleft'
+                        duration=transition_duration,
+                        offset=offset
+                    )
+                print('\n\n Image streams generated') 
+            
+                # Define output video paths
+                
+                custom_videos_name = f'merge_audio_to_video_{position}'
+                video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
+                final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
+                delete_file(video_no_audio)
+                delete_file(final_video)
+                # print(video_no_audio,final_video)
+                # Generate video from images
+                print('Generate video from images with transitions')
+                
+                ffmpeg.output(
+                    output_stream,
+                    video_no_audio,
+                    vcodec='libx264',
+                    pix_fmt='yuv420p',
+                    r=25
+                ).run(overwrite_output=True)
+                
+
+                # Merge video with audio
+                print('Merge video with audio')
+                (
+                    ffmpeg
+                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
+                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
+                    .run(overwrite_output=True)
+                )
+                # genearate video thumbnail
+                image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
+                print(image_url_thumbnail) 
+                if image_url_thumbnail != False:
+                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
+                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
+                    #delete an existing thumbnail
+                    delete_file(thumbnail_path)
+                    print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
+                    create_thumbnail(image_url_thumbnail_val, thumbnail_path)
+                
+                response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
+                position += 1
+                print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+
+            
+            return Response({
+                'success' : 'Your video is successfuly created',
+                "video_url": response_url
+            }, status=200)
+
+               
+        except Exception as e:
+            print(e)
+            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
+            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+
+
+
+# Replace with your public API URL from the Google Colab ngrok FastAPI transcription service
+# PUBLIC_API_URL = "https://your-ngrok-url.ngrok.io"  # <-- update this!
+PUBLIC_API_URL = os.environ.get('Transcribe_URL')
+print(PUBLIC_API_URL)
+
+def transcribe_with_whisper(audio_file_input):
+    # If the input is a dictionary, extract the "audio_path" value.
+    if isinstance(audio_file_input, dict):
+        audio_file_path = audio_file_input.get("audio_path")
+    else:
+        audio_file_path = audio_file_input
+
+    # Construct the full URL for the /transcribe/ endpoint
+    url = f"{PUBLIC_API_URL}/transcribe/"
+    print(f"url {url}")
+    
+    # Open and read the audio file
+    with open(audio_file_path, "rb") as f:
+        audio_data = f.read()
+    
+    # Prepare the file payload (assuming the API expects a field named "file")
+    files = {
+        "file": (os.path.basename(audio_file_path), audio_data, "audio/wav")
+    }
+    
+    # Send the POST request to your FastAPI endpoint
+    response = requests.post(url, files=files)
+    if response.status_code == 200:
+        result = response.json()
+        transcript = result.get("transcript", "")
+        print(transcript)
+        return str(transcript)
+    else:
+        print("Error:", response.status_code, response.text)
+        return ''
+
+
+def transcribe_and_split_audio_api(audio_list, num_splits):
+    transcriptions = []
+    full_transciptions = []
+    position = 1
+    try:
+        for items in audio_list:
+  
+        
+            print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}/{len(audio_list)}')
+            audio_name = items.get('audio_name','fallback.mp3')
+            audio_path = items.get('audio_path','fallback.mp3')
+            print(audio_name,audio_path)
+            # Call the transcription API endpoint hosted on Google Colab
+            transcript = transcribe_with_whisper(audio_path)
+            if not transcript:
+                continue
 
             # Split transcript into parts
-            words = transcript.split()
-            chunk_size = len(words) // num_splits
-            transcript_chunks = [
-                " ".join(words[i * chunk_size: (i + 1) * chunk_size]) for i in range(num_splits)
-            ]
-
-            # Store the split data
-            for chunk in transcript_chunks:
-                transcriptions.append({
-                    "name": audio_name,
-                    "description": chunk
+            print('spliting',type(transcript))
+            full_transciptions.append(transcript)
+            words = textwrap.wrap(transcript, width=len(transcript)//num_splits)
+            
+            print('sliplitted',words)
+            # Save the split transcript data
+            tranascipt_list = []
+            splited_audio_name = str(audio_name).split('.mp3')
+            for words_parts in words:
+                
+                tranascipt_list.append({
+                    "name": f'{position}_{splited_audio_name}.jpg',
+                    "description": words_parts
                 })
+                
+            transcriptions.append(tranascipt_list)
+            print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
 
-        except Exception as e:
-            print(f"Error processing {audio_path}: {e}")
+            position += 1
+    
+        return [transcriptions,full_transciptions]
+    except Exception as e:
+            print(f"Error processing {items}: {e}")
 
-    return transcriptions
+
 
 @method_decorator(csrf_exempt,name='dispatch')
 class UploadAudioToVideoAudiosView(APIView):
@@ -531,6 +705,11 @@ class UploadAudioToVideoAudiosView(APIView):
             audio_files = request.data.getlist("audio")
             NumberOfScripts = sanitize_string(data['NumberOfImages'])
             folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+            if not os.path.exists(folder_path):
+                os.mkdir(folder_path)
+            else:
+                shutil.rmtree(folder_path)
+                os.mkdir(folder_path)
             accountref = Account.objects.filter(email = emailval)
 
             if not accountref.exists() or emailval == 'gestuser@gmail.com':
@@ -560,14 +739,13 @@ class UploadAudioToVideoAudiosView(APIView):
                 print(f'saved audio {i}/{len(audio_files)} audios')
                 i += 1
             
-
+            print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
+            tranascipt_data = transcribe_and_split_audio_api(custom_storage_audio_list,int(NumberOfScripts))
             
-
-            
-            
+            print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
             return Response({
                 'success' : 'Your transcript is successfuly created',
-                "data":  []
+                "data":  [] if tranascipt_data == None else tranascipt_data
             }, status=200)
 
                

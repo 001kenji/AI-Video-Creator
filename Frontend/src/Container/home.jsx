@@ -246,7 +246,7 @@ const Home = ({logout,FetchLogout ,isAuthenticated,load_user,GetCSRFToken}) => {
                             <a className="hover:bg-slate-500 cursor-pointer dark:hover:bg-slate-600 w-full my-auto" >Profile
                             <div className="avatar hover:bg-transparent px-0">
                                 <div className="mask  hover:bg-transparent mask-hexagon w-8">
-                                    <img className=" hover:bg-transparent" src={Profile.ProfilePic} />
+                                    <img className=" hover:bg-transparent" src={Profile.ProfilePic || null} />
                                 </div>
                             </div>
                             </a>

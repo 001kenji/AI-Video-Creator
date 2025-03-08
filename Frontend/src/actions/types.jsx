@@ -36,3 +36,4 @@ export const SelectedPageReducer = 'SelectedPageReducer'
 // AI types
 export const AiVideoMergeUrlReducer = 'AiVideoMergeUrlReducer'
 export const AudioToVideoTranscriptionReducer = 'AudioToVideoTranscriptionReducer'
+export const FullAudioToVideoTranscriptionReducer = 'FullAudioToVideoTranscriptionReducer'
