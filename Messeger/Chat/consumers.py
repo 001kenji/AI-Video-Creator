@@ -393,7 +393,7 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
             if not is_short:
                 ##### CHANGE THIS
                 thumbnail_position = 0
-                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email,f'{thumbnail_position}_thumbnail.jpeg')
+                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email,SocialMediaType,f'{thumbnail_position}_thumbnail.jpeg')
 
                 if not os.path.exists(thumbnail_path):
                     print('thumbnail not found')

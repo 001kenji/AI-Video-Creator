@@ -456,3 +456,99 @@ class MergeView(APIView):
             print(e)
             responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
             return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+
+
+
+def transcribe_and_split_audio(audio_list, num_splits):
+    model = whisper.load_model("base")  # Load Whisper ASR model
+    transcriptions = []
+
+    for audio_path in audio_list:
+        try:
+            # Extract audio file name
+            audio_name = os.path.basename(audio_path)
+
+            # Load and convert audio to wav if necessary
+            audio = AudioSegment.from_file(audio_path)
+            audio.export("temp_audio.wav", format="wav")  # Convert to WAV format
+
+            # Transcribe the audio
+            result = model.transcribe("temp_audio.wav")
+            transcript = result["text"]
+
+            # Split transcript into parts
+            words = transcript.split()
+            chunk_size = len(words) // num_splits
+            transcript_chunks = [
+                " ".join(words[i * chunk_size: (i + 1) * chunk_size]) for i in range(num_splits)
+            ]
+
+            # Store the split data
+            for chunk in transcript_chunks:
+                transcriptions.append({
+                    "name": audio_name,
+                    "description": chunk
+                })
+
+        except Exception as e:
+            print(f"Error processing {audio_path}: {e}")
+
+    return transcriptions
+
+@method_decorator(csrf_exempt,name='dispatch')
+class UploadAudioToVideoAudiosView(APIView):
+    permission_classes = (IsAuthenticated,)
+    throttle_classes = [fileUploadthrottler]
+    @circuit
+    def post(self, request):        
+        try:
+            data = request.data
+            emailval = sanitize_string(data['email'])
+            SocialMediaType = sanitize_string(data['SocialMediaType'])
+            audio_files = request.data.getlist("audio")
+            NumberOfScripts = sanitize_string(data['NumberOfImages'])
+            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+            accountref = Account.objects.filter(email = emailval)
+
+            if not accountref.exists() or emailval == 'gestuser@gmail.com':
+                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
+                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
+
+            if not audio_files or not SocialMediaType or SocialMediaType == '':
+                return Response({'error': 'Missing required files'}, status=400)
+
+            # Save the audio file
+            
+            custom_storage_audio_list = []
+            i = 0
+            for audio in audio_files:
+                filename = os.path.join(folder_path, audio.name)
+                delete_file(filename)
+                with open(filename, "wb") as destination:
+                    for chunk in audio.chunks():
+                        destination.write(chunk)
+                    dataval = {
+                        "audio_name" : audio.name,
+                        "audio_path" : filename
+                    }
+                custom_storage_audio_list.append(dataval)                
+            
+                
+                print(f'saved audio {i}/{len(audio_files)} audios')
+                i += 1
+            
+
+            
+
+            
+            
+            return Response({
+                'success' : 'Your transcript is successfuly created',
+                "data":  []
+            }, status=200)
+
+               
+        except Exception as e:
+            print(e)
+            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
+            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)

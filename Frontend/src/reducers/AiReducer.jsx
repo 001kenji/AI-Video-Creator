@@ -1,15 +1,13 @@
 
 import {
     AiVideoMergeUrlReducer,
+    AudioToVideoTranscriptionReducer
     
 }from '../actions/types'
 
 const initialState = {
-    AiVideoMergeUrl :[
-        "kenjicladia@gmail.com/youtube/all_for_all_audio_0_with_audio.mp4",
-        "kenjicladia@gmail.com/youtube/all_for_all_audio_1_with_audio.mp4",
-        "kenjicladia@gmail.com/youtube/all_for_all_audio_2_with_audio.mp4"
-      ],
+    AiVideoMergeUrl : [],
+    AudioToVideoTranscription : []
 };
 
 
@@ -25,7 +23,12 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 AiVideoMergeUrl : payload
-            }     
+            }  
+        case AudioToVideoTranscriptionReducer:
+            return {
+                ...state,
+                AudioToVideoTranscription : payload
+            }   
      
         default:
             return state

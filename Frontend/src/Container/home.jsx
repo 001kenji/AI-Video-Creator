@@ -222,17 +222,7 @@ const Home = ({logout,FetchLogout ,isAuthenticated,load_user,GetCSRFToken}) => {
                         <div className={` ${(db == null || db == 'null') && ShowLoginContainer ? 'block' : 'hidden'} h-fit w-full absolute  z-50 min-h-[300px] max-h-[500px] min-w-fit `} ><Login /></div>
 
                         {Page == 'AI' ? 
-                            <div className=" h-fit w-full overflow-x-hidden min-w-full bg-transparent " >
-                                <div className=" w-full min-w-full overflow-y-auto  h-fit flex flex-row bg-transparent justify-start gap-4 px-3 " >
-                                    <p onClick={()=> SetAiPageSelected('PostContent')} className={` ${AiPageSelected == 'PostContent' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Post Content</p>
-                                    <p onClick={()=> SetAiPageSelected('SaveFile')} className={` ${AiPageSelected == 'SaveFile' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit  `}>Save File</p>
-                                </div>
-                                {
-                                    AiPageSelected == 'PostContent' ? <PostContentPage className='z-30' />  : 
-                                    <SaveFilePage className='z-30' />
-                                }
-                                
-                            </div>                            
+                            <PostContentPage className='z-30' />                      
                         :
                         Page == 'profile' ? 
                             <ProfileJSX className='z-30' /> :
@@ -284,7 +274,17 @@ const Home = ({logout,FetchLogout ,isAuthenticated,load_user,GetCSRFToken}) => {
         </div>
     )
    
-
+{/* <div className=" h-fit w-full overflow-x-hidden min-w-full bg-transparent " >
+                                <div className=" w-full min-w-full overflow-y-auto  h-fit flex flex-row bg-transparent justify-start gap-4 px-3 " >
+                                    <p onClick={()=> SetAiPageSelected('PostContent')} className={` ${AiPageSelected == 'PostContent' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Post Content</p>
+                                    <p onClick={()=> SetAiPageSelected('SaveFile')} className={` ${AiPageSelected == 'SaveFile' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit  `}>Save File</p>
+                                </div>
+                                {
+                                    AiPageSelected == 'PostContent' ? <PostContentPage className='z-30' />  : 
+                                    <SaveFilePage className='z-30' />
+                                }
+                                
+                            </div>  */}
 
 };
 
