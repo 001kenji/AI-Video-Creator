@@ -1,8 +1,8 @@
 # chat/consumers.py
 import json,threading,datetime,aiohttp,requests, asyncio
-import redis
+import redis,aiofiles
 from django.core.files.storage import FileSystemStorage
-import time,os,shutil, asyncio,base64
+import time,os,shutil,base64
 from django.conf import settings, Settings
 from markdown import markdown
 from asgiref.sync import sync_to_async,async_to_sync
@@ -165,79 +165,57 @@ async def RequestAIResponseFunc(prompt,email):
 async def RequestRequestClearServer(email):
     """Generate AI text content asynchronously."""
     try:
-        folder_path = os.path.join(settings.MEDIA_ROOT, email,'youtube')
-        if os.path.exists(folder_path):
-            shutil.rmtree(folder_path)
+        folder_path = os.path.join(settings.MEDIA_ROOT, email, 'youtube')
+        folder_exists = await asyncio.to_thread(os.path.exists, folder_path)
+        if folder_exists:
+            await asyncio.to_thread(shutil.rmtree, folder_path)
         
-        reponseval = {'type' : 'success','result' : 'Files cleared successfuly'}
-        return reponseval
+        responseval = {'type': 'success', 'result': 'Files cleared successfully'}
+        return responseval
     except Exception as e:
         print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue while clearing your files. That shouldn\'t worry you'}
-        return reponseval
-
-
-
-async def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
-    """Create thumbnail from a locally downloaded image file"""
-    try:
-        # Process in executor to avoid blocking
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(
-            None,  # Uses default executor
-            lambda: _generate_thumbnail_from_file(image_url, thumbnail_path, size)
-        )
-        
-        return True
-    except Exception as e:
-        print(f"Thumbnail error: {str(e)}")
-        return False
-
-def _generate_thumbnail_from_file(image_path, output_path, size):
-    """Synchronous thumbnail generation from local file"""
-    with Image.open(image_path) as img:
-        # Convert to RGB if needed
-        if img.mode in ('RGBA', 'P'):
-            img = img.convert('RGB')
-            
-        # Use modern resampling filter
-        img.thumbnail(
-            size,
-            resample=Image.Resampling.LANCZOS  # Replacement for ANTIALIAS
-        )
-        img.save(output_path, "JPEG", quality=85)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': "It seems there is an issue while clearing your files. That shouldn't worry you"
+        }
+        return responseval
 
 # function to download the iamges
 @asyncCircuitBreaker
-async def download_image(image_url, filename,emailval,SocialMediaType):
+async def download_image(image_url, filename, emailval, SocialMediaType):
     async with aiohttp.ClientSession() as session:
         async with session.get(image_url) as response:
             if response.status == 200:
                 content = await response.read()
-                folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-                #print('folder path: ',folder_path)
-                file_path = os.path.join(folder_path,filename)
-                if os.path.exists(file_path):
+                folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
+                file_path = os.path.join(folder_path, filename)
+                
+                # Check and remove existing file in a separate thread.
+                exists = await asyncio.to_thread(os.path.exists, file_path)
+                if exists:
                     try:
-                        os.remove(file_path)
+                        await asyncio.to_thread(os.remove, file_path)
                         print(f"Existing File deleted: {file_path}")
                     except Exception as e:
                         print(f"Error deleting existing file {file_path}: {e}")
-                #print('saving beggins .......')
-                custom_storage = FileSystemStorage(location=folder_path)
-                with custom_storage.open(f'{filename}', 'wb') as file:
-                    file.write(content)
                 
-                print(f'\n\nDownload Completed: {filename} ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+                # Save file using Django's FileSystemStorage offloaded to a thread.
+                def save_file():
+                    custom_storage = FileSystemStorage(location=folder_path)
+                    with custom_storage.open(filename, 'wb') as file:
+                        file.write(content)
+                await asyncio.to_thread(save_file)
+                
+                print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
             else:
-                print(f'\n\nFailed to download {filename} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌')    
+                print(f"\n\nFailed to download {filename} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
     return filename
 
 
 @asyncCircuitBreaker
-# Wrap synchronous pollinations code
 async def generate_image_async(description, title):
-   
+    # Create an asynchronous pollinations image model.
     image_model = pollinationsAi.Async.Image(
         model=pollinationsAi.Image.flux(),
         seed="random",
@@ -248,26 +226,29 @@ async def generate_image_async(description, title):
         private=True,
         safe=False,
         referrer="pollinations.py"
-    )  # or pollinations.Image() to use defaults
-
+    )
+    # Generate the image asynchronously.
     image = await image_model(prompt=f'{description}')
-    image.save(file= f'{title}.jpg')
-    
+    # Offload the synchronous image.save() call to a thread.
+    await asyncio.to_thread(image.save, file=f'{title}.jpg')
+
 
 @asyncCircuitBreaker
-async def RequestCreateImagesFunc(prompt,email,SocialMediaType):
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType):
     """Generate AI images content asynchronously."""
     try:
-        
-        loopval = 0
         dataval = prompt
-        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email,SocialMediaType)
-        if not os.path.exists(social_media_folder_path):
-            os.mkdir(social_media_folder_path)
+        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
+        
+        # Ensure the folder is created asynchronously.
+        folder_exists = await asyncio.to_thread(os.path.exists, social_media_folder_path)
+        if not folder_exists:
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
         else:
-            shutil.rmtree(social_media_folder_path)
-            os.mkdir(social_media_folder_path)
+            await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
             
+        loopval = 0
         for items in dataval:
             objectval = items.get("ImageList", [])
             i = 0
@@ -278,102 +259,113 @@ async def RequestCreateImagesFunc(prompt,email,SocialMediaType):
                 ImageDescription = objectval_items.get("description", "A beautiful natural scene")
                 width = 1024
                 height = 1024
-                seed = 42 # Each seed generates a new image variation
-                model = 'flux' # Using 'flux' as default if model is not provided
+                seed = 42  # Each seed generates a new image variation
+                model = 'flux'  # Using 'flux' as default if model is not provided
 
+                # Construct API image URL.
                 API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
                 
-                # Generate image URL asynchronously
+                # Generate image asynchronously.
                 await generate_image_async(ImageDescription, title)
-                await download_image(API_image_url, title,email,SocialMediaType)
+                # Download the generated image.
+                await download_image(API_image_url, title, email, SocialMediaType)
+                
                 storage_name = f'{email}/{SocialMediaType}/{title}'
                 print(f'\n\nAt object {loopval} generated {title}')
-
                 i += 1
-                print(f'\nRemainig images {i}/{len(objectval)} images')
-
+                print(f'\nRemaining images {i}/{len(objectval)} images')
             loopval += 1
-            print(f'\nRemainig loops {loopval}/{len(dataval)} objects ')
-
+            print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
-        reponseval = {'type' : 'success','status' : 'success','result' : 'All images processed','data' : dataval}
-        return reponseval
+        responseval = {
+            'type': 'success',
+            'status': 'success',
+            'result': 'All images processed',
+            'data': dataval
+        }
+        return responseval
     except Exception as e:
         print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue with your request. Try again later'}
-        return reponseval
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
 
 
 @asyncCircuitBreaker
-async def RequestCreateImagesTranscriptFunc(prompt,email,SocialMediaType):
-    """Generate AI images content asynchronously."""
+async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType):
+    """Generate AI images content asynchronously for transcripts."""
     try:
-        
-        loopval = 0
         dataval = prompt
-        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email,SocialMediaType)
-       
-            
+        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
+        
+        # No need to create or delete folder if not required, or replicate as in RequestCreateImagesFunc.
+        loopval = 0
         for items in dataval:
             objectval = items.get("ImageList", [])
             i = 0
             for objectval_items in objectval:
                 print(f'\n\n{i} - {objectval_items}\n\n')           
                 title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
-                # Image details
                 ImageDescription = objectval_items.get("description", "A beautiful natural scene")
                 width = 1024
                 height = 1024
-                seed = 42 # Each seed generates a new image variation
-                model = 'flux' # Using 'flux' as default if model is not provided
-
+                seed = 42
+                model = 'flux'
                 API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
                 
-                # Generate image URL asynchronously
                 await generate_image_async(ImageDescription, title)
-                await download_image(API_image_url, title,email,SocialMediaType)
+                await download_image(API_image_url, title, email, SocialMediaType)
                 storage_name = f'{email}/{SocialMediaType}/{title}'
                 print(f'\n\nAt object {loopval} generated {title}')
-
                 i += 1
-                print(f'\nRemainig images {i}/{len(objectval)} images')
-
+                print(f'\nRemaining images {i}/{len(objectval)} images')
             loopval += 1
-            print(f'\nRemainig loops {loopval}/{len(dataval)} objects ')
-
+            print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
-        reponseval = {'type' : 'success','status' : 'success','result' : 'All images processed','data' : dataval}
-        return reponseval
+        responseval = {
+            'type': 'success',
+            'status': 'success',
+            'result': 'All images processed',
+            'data': dataval
+        }
+        return responseval
     except Exception as e:
         print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue with your request. Try again later'}
-        return reponseval
-
-
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
 
 # Redis connection
 redisConnection = settings.REDIS_CONNECTION 
 # redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
-
-def get_authenticated_service(email, credential_file_path, token_path):
-    """Authenticate and return YouTube service with persistent authentication"""
-
-    # If token exists, load it to avoid re-authentication
+async def get_authenticated_service(email, credential_file_path, token_path):
+    """Authenticate and return YouTube service with persistent authentication in a non-blocking way."""
     credentials = None
-    if os.path.exists(token_path):
-        print("🔑 Loading existing token...")
-        with open(token_path, 'r') as token_file:
-            credentials_data = json.load(token_file)
-            credentials = Credentials.from_authorized_user_info(credentials_data, SCOPES)
-        
 
-    # If credentials are invalid, refresh or re-authenticate
+    # Check if token exists asynchronously.
+    token_exists = await asyncio.to_thread(os.path.exists, token_path)
+    if token_exists:
+        print("🔑 Loading existing token...")
+        async with aiofiles.open(token_path, 'r') as token_file:
+            token_content = await token_file.read()
+            credentials_data = json.loads(token_content)
+            # Wrap the synchronous call in a thread.
+            credentials = await asyncio.to_thread(Credentials.from_authorized_user_info, credentials_data, SCOPES)
+
+    # If credentials are missing or invalid, refresh or perform new OAuth flow.
     if not credentials or not credentials.valid:
         if credentials and credentials.expired and credentials.refresh_token:
             try:
                 print("🔄 Refreshing token...")
-                credentials.refresh(Request())
+                # Refresh credentials in a thread.
+                await asyncio.to_thread(credentials.refresh, Request())
             except Exception as e:
                 print(f"⚠ Token refresh failed: {e}")
                 credentials = None
@@ -381,60 +373,58 @@ def get_authenticated_service(email, credential_file_path, token_path):
         if not credentials:
             print("🔐 New authentication required...")
 
-            # Load client secrets file
-            client_secrets_file = credential_file_path
+            # Define a helper to run the OAuth flow synchronously.
+            def run_oauth_flow():
+                flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                    credential_file_path, SCOPES
+                )
+                # Example: generate a unique key for Redis (if needed)
+                auth_key = f"oauth_flow:{email}"
+                print('Store authentication state in Redis')
+                auth_url, state = flow.authorization_url(
+                    access_type="offline",  # Ensures refresh token is issued.
+                    prompt='consent'
+                )
+                # Assuming redisConnection is available and thread-safe.
+                redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)
+                print('Authenticate user via local server (blocking call)')
+                creds = flow.run_local_server(
+                    port=8080,
+                    open_browser=True,
+                    redirect_uri_trailing_slash=False
+                )
+                return creds
 
-            # Create OAuth Flow
-            print('Create OAuth Flow')
-            flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-                client_secrets_file, SCOPES
-            )
+            # Run the blocking OAuth flow in a separate thread.
+            credentials = await asyncio.to_thread(run_oauth_flow)
 
-            # Generate unique key for Redis (to track authentication state)
-            auth_key = f"oauth_flow:{email}"
+        # Save new token using asynchronous file I/O.
+        print("💾 Saving new token for future use")
+        async with aiofiles.open(token_path, 'w') as token_file:
+            await token_file.write(credentials.to_json())
 
-            # Store authentication state in Redis
-            print('Store authentication state in Redis')
-            auth_url, state = flow.authorization_url(
-                access_type="offline",  # ✅ Ensures refresh token is issued
-                prompt='consent')
-            redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)  # Expires in 5 minutes
-
-            # Authenticate user via local server (non-blocking)
-            print('Authenticate user via local server (non-blocking)')
-            credentials = flow.run_local_server(
-                port=8080,
-                open_browser=True,
-                redirect_uri_trailing_slash=False
-            )
-
-        # Save new token for future use
-        print('ave new token for future use')
-        with open(token_path, 'w') as token_file:
-            token_file.write(credentials.to_json())
-
-    # Build YouTube service
+    # Build the YouTube service in a thread (since discovery.build is blocking).
+    def build_youtube_service():
+        return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+    youtube = await asyncio.to_thread(build_youtube_service)
     print("✅ Authentication successful!")
-    youtube = googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-    print('returning youtube build googleapi')
     return youtube
 
-
-def is_video_a_short(video_path):
-    """Check if the video is a YouTube Short"""
+async def is_video_a_short(video_path):
+    """Check asynchronously if the video is a YouTube Short"""
     try:
-        clip = VideoFileClip(video_path)
+        # Run the blocking operation in a separate thread
+        clip = await asyncio.to_thread(VideoFileClip, video_path)
         duration = clip.duration  # Duration in seconds
-        # YouTube Shorts criteria:
-        # - Duration <= 60 seconds
         is_short = (duration <= 60) 
         return is_short
     except Exception as e:
         print(f"Error checking video: {str(e)}")
         return False
 
+
 @asyncCircuitBreaker
-async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,credential_file_path):
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl):
     """Upload video to YouTube with metadata"""
     try:
         
@@ -442,11 +432,12 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
         
         folder_path = os.path.join(settings.MEDIA_ROOT,email)
         # Get authenticated service
-        full_credential_file_path = os.path.join(folder_path, credential_file_path)
+        full_credential_file_path = os.path.join(settings.MEDIA_ROOT,'mela@mela','client_secret.json')
         full_token_path = os.path.join(folder_path, 'token.json')
         
         # Try using stored credentials
-        service = get_authenticated_service(email = email,credential_file_path = full_credential_file_path,token_path=full_token_path)
+        ### MADE THE FUNCTION ASYNC 
+        service = await get_authenticated_service(email = email,credential_file_path = full_credential_file_path,token_path=full_token_path)
         ### LOOPING SHOULD BEGGIN HERE
         #print(json.dumps(bodyval,indent=4))
         #### LOOP STARTS HERE
@@ -489,23 +480,29 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,crede
             video_id_list.append(video_id)
             
             # Before thumbnail upload
-            is_short = is_video_a_short(full_video_path)  # Implement this function
+             # Check if the video is a YouTube Short asynchronously.
+            is_short = await is_video_a_short(full_video_path)
             if not is_short:
-                ##### CHANGE THIS
-                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email,SocialMediaType,f'{position}_thumbnail.jpeg')
-
-                if not os.path.exists(thumbnail_path):
-                    print('thumbnail not found')
+                # Build the thumbnail path.
+                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType, f'{position}_thumbnail.jpeg')
+                
+                # Check if the thumbnail exists in a non-blocking manner.
+                thumbnail_exists = await asyncio.to_thread(os.path.exists, thumbnail_path)
+                if not thumbnail_exists:
+                    print('Thumbnail not found')
                 else:
-                    # Upload thumbnail
-                    
-                    media_thumbnail = MediaFileUpload(thumbnail_path)
-                    await asyncio.to_thread(
-                        service.thumbnails().set(
-                            videoId=video_id,
-                            media_body=media_thumbnail
-                        ).execute
-                    )
+                    try:
+                        # Prepare the MediaFileUpload (this call is synchronous).
+                        media_thumbnail = MediaFileUpload(thumbnail_path)
+                        # Offload the blocking thumbnail upload to a separate thread.
+                        await asyncio.to_thread(
+                            service.thumbnails().set(
+                                videoId=video_id,
+                                media_body=media_thumbnail
+                            ).execute
+                        )
+                    except Exception as e:
+                        print('Error when uploading thumbnail ❌:', e)
                     print('\n\nThumbnail uploaded')
                     
             position += 1
@@ -548,7 +545,6 @@ def EditProfileFunc(about,email,name,ProfilePic = None):
     except Exception as e:
         responseval =  {'status' : 'error','message' : 'invalid account'}
         return responseval   
-
 
 
 @circuit
@@ -807,9 +803,8 @@ class AIConsumer(AsyncWebsocketConsumer):
                 prompt = text_data_json['prompt']
                 VideoUrl = text_data_json['VideoUrl']
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
-                GoogleAPICredentialFile = sanitize_string(text_data_json['GoogleAPICredentialFile'])
                 # Track the task
-                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,credential_file_path=GoogleAPICredentialFile))
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestClearServer'):
@@ -834,17 +829,13 @@ class AIConsumer(AsyncWebsocketConsumer):
     async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType):
         val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType)
         await self.send_msg(data=val, type='RequestCreateImagesTranscript')
-    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,credential_file_path):
-        if credential_file_path == None or credential_file_path == '':
-           responseval = {'type' : 'error','status' : 'warning','result' : 'It seams there is no GoogleAPICredentialFile uploaded to your account. Navigate to Profile page to upload'}
-           await self.send_msg(data=responseval, type='RequestUploadVideos')
-        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,credential_file_path=credential_file_path)
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl)
         await self.send_msg(data=val, type='RequestUploadVideos')
     
 
 
    
-
 class ChatList(AsyncWebsocketConsumer):
 
 

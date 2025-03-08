@@ -31,7 +31,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const {register,formState,reset,getValues,setValue,watch} = useForm({
         defaultValues : {
             'AIprompt' : '',
-            'TranscriptionAIprompt' : '',
             'ClearServer' : true         
         },
         mode : 'all'
@@ -82,7 +81,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'VideoListDetailsWithImages' : [],
         'UploadedVideoId' : []
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')
+    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -111,9 +110,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         { value: "OneForAll", label: "One audio for all videos",name : 'VideoAudioModeOptions' },
         { value: "AllForAll", label: "Each audio for videos",name : 'VideoAudioModeOptions' },
     ];
-    const [ProfileAboutContainer,SetProfileAboutContainer] = useState({
-            'GoogleAPICredentialFile' : null
-    })
+    
    const [DisableMergeButton,SetDisableMergeButton] = useState(true)
     const [SelectedVideoImageCarousel,SetSelectedVideoImageCarousel] = useState(0)
     const [SelectedVideoScriptCarousel,SetSelectedVideoScriptCarousel] = useState(0)
@@ -156,6 +153,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     },[AiVideoMergeUrl])
 
     useEffect(() => {
+        //console.log('changes detected: ',AudioToVideoTranscription.length)
         if (AudioToVideoTranscription.length != 0){
             // send request for ai body data
             ShowToast('info','Transcipt are generated. Generating videos body')
@@ -176,20 +174,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             // })
             
         }
-    },[AudioToVideoTranscription])
-
-    useEffect(() => {
-            if(ProfileDB != null){
-                //console.log('called',ProfileDB)
-                SetProfileAboutContainer((e) => {
-                    return {
-                        ...e,
-                        'GoogleAPICredentialFile' : ProfileDB.GoogleAPICredentialFile
-                    }
-                })  
-            }
-           
-    },[ProfileDB])
+    },[AudioToVideoTranscription,FullAudioToVideoTranscription])
 
     useEffect(() => {
         // console.log('called')
@@ -454,7 +439,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     
                 }
                 var videoList = JSON.stringify(Listval , null, 2);
-                console.log(videoList)
                 SetPostContentContainer((e) => {
                     return {
                         ...e,
@@ -626,7 +610,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'prompt' : PostContentContainer.VideoListDetailsWithImages,
                         'VideoUrl' : AiVideoMergeUrl,
                         'SocialMediaType' : body,
-                        'GoogleAPICredentialFile' : ProfileAboutContainer.GoogleAPICredentialFile
                     })
                 )
             }else if(msg == 'RequestClearServer') {
@@ -735,6 +718,18 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 'UploadedVideoId' : []
                 
             })
+            reset()
+            if(AiPageSelected == 'VoiceToVideo'){
+                SetAudioToVideoContainer((e) => {
+                    return  {
+                        ...e,
+                        'audioFiles' : [],
+                        'ShowAudioToVideoContainer' : false               
+                    }
+                })
+                    
+            }
+
         }
     }
     function ToongleAiPageSelected (props) {
@@ -830,9 +825,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         if(props == 'Upload'){
             if(AiVideoMergeUrl.length == 0){
                 ShowToast('warning','Your video url seams to be empty')
-                return
-            }else if(ProfileAboutContainer.GoogleAPICredentialFile == null){
-                ShowToast('warning','You haven\'t uploaded your Google Cloud client_secrets file. Navigate to Profile upage and upload the file')
                 return
             }else {
                 SetPostContentContainer((e)=> {
@@ -1113,7 +1105,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         // className= {`mask-square h-fit m-auto min-h-fit  max-w-[250px] rounded-md cursor-pointer max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-b-md   `}
         var lists = imagelist.map((items,i) => {
             var imageurl = `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/youtube/${items.name}`
-            console.log(imageurl)
+            //console.log(imageurl)
             return (
                 <img key={i} loading="lazy" onClick={()=>ChangeMediaGallary(imageurl,'image')} className= {`mask-square h-full m-auto min-h-full min-w-full max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-md cursor-pointer rounded-b-md   `} src={imageurl || null}  alt="media not found"/>        
             )
@@ -1729,16 +1721,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                         </div>
                                     </div>
                                 </div>
-                                
-                                {/* <div className={` ${AudioToVideoContainer.audioFiles.length > 0 ? 'flex flex-col gap-3' : 'hidden'} `} >
-                                    <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Write a short description of your videos to be generated</p>
-                                    <textarea  
-                                        className={` w-full bg-transparent max-h-[120px] resize-y outline-none text-slate-950   dark:text-slate-200 shadow-xs border-none focus-within:ring-0 focus-within:shadow-2Sxl ring-0 placeholder:text-slate-700 dark:placeholder:text-slate-400 focus:outline-transparent rounded-xl focus:border-transparent textarea   min-h-fit  h-[70px] overflow-y-auto`}  
-                                        {...register('TranscriptionAIprompt',{required : false})}
-                                        placeholder={'general description'} 
-                                    ></textarea>                                            
-                                </div> */}
-
                                 {/* progressLevel buttons */}
                                 <div className=" flex flex-row flex-wrap gap-2 w-[90%] max-w-[600px] mx-auto justify-around">
                                     {

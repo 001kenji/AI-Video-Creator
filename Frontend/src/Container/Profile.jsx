@@ -124,7 +124,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     const FolderListContainer = useRef(null)
     const FileListContainer = useRef(null)
     const RepositoryUploadFile = useRef(null)
-    const GoogleAPICredentialFile = useRef(null)
+    
     const WsDataStream = useRef(null)
     // Ref hook for animated icons
     const EditIconRef = useRef()
@@ -137,26 +137,6 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                 })
             }
     } 
-    function SaveGoogleAPICredentialFile (val) {
-        if (val == 'save' ) {
-            SetOverviewUpload((e) => {
-                return {
-                    ...e,
-                    'LoadingVideoList' : true,
-                    'Scope' : 'GoogleAPICredentialFile'
-                }
-            })
-            const formData = new FormData();
-            formData.append('file',OverviewUpload.file);
-            formData.append('scope','GoogleAPICredentialFileUpload')
-            formData.append('email',UserEmail)
-            formData.append('name',OverviewUpload.Name)
-            UploadProfileFile(formData)
-
-        }else if (UserEmail == 'gestuser@gmail.com'){
-            ShowToast('warning','Login to manage this account')
-        }
-    }
     
     useLayoutEffect(()=> {
         //console.log(UserID,extrainfo,UserEmail,ProfileAccount.AccountEmail)
@@ -222,26 +202,12 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
         
     },[db,extrainfo])
     
-    useEffect(() => {
-        if(ProfileDB != null){
-            
-            var GoogleAPICredentialFileval = ProfileDB.GoogleAPICredentialFile ? `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/${ProfileDB.GoogleAPICredentialFile}` : null
-           
-            SetProfileAboutContainer((e) => {
-                return {
-                    ...e,
-                    'GoogleAPICredentialFile' : GoogleAPICredentialFileval
-                }
-            })
-            if(ProfileDB.Scope){
-                if(ProfileDB.Scope != null && ProfileDB.Scope == OverviewUpload.Scope){
-                    ClearGoogleAPICredentialFileUpload()
-                }
-            }
+    // useEffect(() => {
+    //     if(ProfileDB != null){
 
-        }
+    //     }
        
-    },[ProfileDB,extrainfo])
+    // },[ProfileDB,extrainfo])
     
     useEffect(() => {
         //console.log('called',StoreProfileAccount)
@@ -722,40 +688,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
             </tr>
         )
     })
-    const downloadFile = async (fileUrl) => {
-        if(fileUrl != null){
-            `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/${ProfileDB.GoogleAPICredentialFile}`
-            const response = await fetch(fileUrl, {
-                method: 'GET',
-                headers: {
-                  "x-CSRFToken": `${Cookies.get('Inject')}`,
-                  "Cookie": `Inject=${Cookies.get('Inject')}`
-                  // Add any headers if required, e.g., Authorization
-                },
-              });
-            
-              if (!response.ok) {
-                  ShowToast('warning','Seams like there was a problem when downloading. Try again later')
-                  throw new Error('Network response was not ok');
-              }
-            
-              const blob = await response.blob();
-              const url = window.URL.createObjectURL(blob);
-              
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = fileUrl.split('/').pop(); // Extract the file name from the URL
-              document.body.appendChild(a);
-              a.click();
-              a.remove();
-              window.URL.revokeObjectURL(url); // Clean up the URL object
-              
-              ShowToast('warning','Successfully Downloaded')
-        }else {
-            ShowToast('warning','No file found')
-        }
-        
-    };
+    
       
     function DownloadRepositoryFile (fileUrl) {
         var link = `${import.meta.env.VITE_APP_API_URL}/media${fileUrl}`;
@@ -929,52 +862,6 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
             setValue('password','')
         }
     }
-    const ToongleGoogleAPICredentialFileUpload = (val) => {
-       
-        var File =  GoogleAPICredentialFile.current.files[0] ?  GoogleAPICredentialFile.current.files[0] : val
-        
-        if(File) {
-            var Types = String(File.type).split('/')
-            //console.log(Types)
-            if(Types[1] == 'json'){
-                const render = new FileReader()
-                render.onload = function (e) {
-                    SetOverviewUpload((val) => {
-                        return {
-                            ...val,
-                            'file' : File,
-                            'src' : e.target.result,
-                            'Name' : File.name,
-                            'Scope' : 'GoogleAPICredentialFile'
-                        }
-                    })               
-                                        
-                }
-                render.readAsDataURL(File) 
-                SetIsEditingProfile(true)
-                GoogleAPICredentialFile.current.value == ''
-            }                   
-        }
-
-    }  
-    function ClickGoogleAPICredentialFileUpload (props) {
-        if(props){
-            GoogleAPICredentialFile.current.click()
-        }
-    }
-    function ClearGoogleAPICredentialFileUpload () {
-            SetOverviewUpload((e) => {
-                return {
-                    ...e,
-                    'file' : null,
-                    'src' : null,
-                    'Name' : null,
-                    'Scope' : '',
-                    'LoadingVideoList' : false
-                }
-            })
-            GoogleAPICredentialFile.current.value = ''
-    }
 
     return (
         <div className={` h-full w-full min-w-full relative max-w-[100%] flex flex-col justify-start `} >
@@ -1068,44 +955,10 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                 </div>
                 {/* selected overview tab info EDITING */}
                 <div className={`${AboutMeSelectedTab == 'Overview' && IsEditingProfile ? 'flex flex-col gap-2' : ' hidden'} text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
-                    <p className=" text-sm py-1 text-slate-800 dark:text-slate-200 " >Upload Google API Credentials file</p>
-                    <div className="flex flex-col justify-start gap-3 w-full h-fit" >
-                        <input onChange={ToongleGoogleAPICredentialFileUpload} ref={GoogleAPICredentialFile} className=" hidden" accept=".json"  type="file" />
-                        <div className="flex flex-col sm:flex-row gap-2 justify-between w-full" >
-                            <div className={`flex flex-row w-full justify-start sm:w-fit gap-3`}>
-                                <button onClick={() => ClickGoogleAPICredentialFileUpload('click')} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-14 h-10 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                    <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                </button>
-                                <input className={`${OverviewUpload.file == null ? 'invisible' : 'visible'} text-sm w-fit min-w-fit max-w-[200px] dark:text-slate-300 text-slate-600  text-ellipsis `} readOnly value={`name: ${OverviewUpload.Name}`} />
-                            </div>
-                            <p disabled={OverviewUpload.file == null} onClick={ClearGoogleAPICredentialFileUpload} className={` ${OverviewUpload.file == null ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
-                            <div className= {` ${OverviewUpload.Scope == 'GoogleAPICredentialFile' ? 'visible' : 'invisible'} flex flex-row flex-wrap gap-2 w-full mx-auto mt-auto justify-around `}>
-                                    {
-                                        OverviewUpload.LoadingVideoList == true && OverviewUpload.Scope == 'GoogleAPICredentialFile' ? 
-                                            <span className="loading ml-auto mr-1 dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
-                                        :
-                                            <button onClick={() => SaveGoogleAPICredentialFile('save')} disabled={OverviewUpload.file == null || OverviewUpload.Scope != 'GoogleAPICredentialFile'} data-tip="save file" className={` tooltip py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent ml-auto mr-1 mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-slate-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>save</button>
-                                    }
-                            </div>
-                        </div>
-                    </div>
 
                 </div>
                 {/* selected overview tab info view */}
-                <div className={`${AboutMeSelectedTab == 'Overview' && !IsEditingProfile ? 'flex flex-col gap-2' : ' hidden'} text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
-                    <p className=" text-sm py-1 text-slate-800 dark:text-slate-200 " >Google API Credentials file</p>
-                    <div className="flex flex-col justify-start gap-3 w-full h-fit" >
-                        {ProfileAboutContainer.GoogleAPICredentialFile == null ?
-                            <p className=" text-sm py-1 text-slate-800 dark:text-slate-200 " >No file uploaded yet</p>
-                            :
-                            <p onClick={() => downloadFile(ProfileAboutContainer.GoogleAPICredentialFile)} className=" text-sm py-1 cursor-pointer dark:decoration-sky-400/60 ml-8 flex flex-row group gap-2 text-slate-800 dark:text-slate-200 " >
-                                <MdOutlineFileDownload   className=" my-auto text-lg text-blue-600 cursor-pointer dark:text-sky-400 group-hover:text-purple-500 dark:group-hover:text-purple-500  transition-all duration-300 "  role="button" />
-                                <span className=" opacity-80 group-hover:underline group-hover:underline-offset-2 cursor-pointer " >download file</span>
-                            </p>
-                        }
-                    </div>
-
-                </div>
+                
             </div>
 
             {/* repository section  */}

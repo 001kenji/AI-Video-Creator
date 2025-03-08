@@ -11,6 +11,7 @@ from rest_framework.throttling import UserRateThrottle
 from django.views.decorators.csrf import csrf_exempt,ensure_csrf_cookie, csrf_protect
 from django.utils.decorators import method_decorator
 #from AuthApp.excel_py.form1s import ReadWithFullRange
+from asgiref.sync import async_to_sync
 from circuitbreaker import circuit
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
@@ -219,8 +220,7 @@ class FileUploadView(APIView):
 
 
 
-redisConnection = settings.REDIS_CONNECTION 
-
+redisConnection = settings.REDIS_CONNECTION
 def oauth_callback(request):
     """Handle OAuth response, fetch access token, and store credentials."""
     
@@ -610,7 +610,6 @@ class MergeAudioToVideoView(APIView):
             return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
 
 
-
 # Replace with your public API URL from the Google Colab ngrok FastAPI transcription service
 # PUBLIC_API_URL = "https://your-ngrok-url.ngrok.io"  # <-- update this!
 PUBLIC_API_URL = os.environ.get('Transcribe_URL')
@@ -648,7 +647,7 @@ def transcribe_with_whisper(audio_file_input):
         return ''
 
 
-def transcribe_and_split_audio_api(audio_list, num_splits):
+async def transcribe_and_split_audio_api(audio_list, num_splits):
     transcriptions = []
     full_transciptions = []
     position = 1
@@ -661,7 +660,7 @@ def transcribe_and_split_audio_api(audio_list, num_splits):
             audio_path = items.get('audio_path','fallback.mp3')
             print(audio_name,audio_path)
             # Call the transcription API endpoint hosted on Google Colab
-            transcript = transcribe_with_whisper(audio_path)
+            transcript = await asyncio.to_thread(transcribe_with_whisper, audio_path)
             if not transcript:
                 continue
 
@@ -670,16 +669,18 @@ def transcribe_and_split_audio_api(audio_list, num_splits):
             full_transciptions.append(transcript)
             words = textwrap.wrap(transcript, width=len(transcript)//num_splits)
             
-            print('sliplitted',words)
+            #print('sliplitted',words)
             # Save the split transcript data
             tranascipt_list = []
             splited_audio_name = str(audio_name).split('.mp3')
+            spited_position = 0
             for words_parts in words:
-                
+                print('\n\n splited file name: ',splited_audio_name[0])
                 tranascipt_list.append({
-                    "name": f'{position}_{splited_audio_name}.jpg',
+                    "name": f'{spited_position}_{splited_audio_name[0]}.jpg',
                     "description": words_parts
                 })
+                spited_position += 1
                 
             transcriptions.append(tranascipt_list)
             print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
@@ -740,8 +741,10 @@ class UploadAudioToVideoAudiosView(APIView):
                 i += 1
             
             print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
-            tranascipt_data = transcribe_and_split_audio_api(custom_storage_audio_list,int(NumberOfScripts))
-            
+            # tranascipt_data = transcribe_and_split_audio_api(custom_storage_audio_list,int(NumberOfScripts))
+            tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
+                custom_storage_audio_list, int(NumberOfScripts)
+            )            
             print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
             return Response({
                 'success' : 'Your transcript is successfuly created',
