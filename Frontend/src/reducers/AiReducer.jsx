@@ -2,14 +2,16 @@
 import {
     AiVideoMergeUrlReducer,
     FullAudioToVideoTranscriptionReducer,
-    AudioToVideoTranscriptionReducer
+    AudioToVideoTranscriptionReducer,
+    ProgressInformationReducer
     
 }from '../actions/types'
 
 const initialState = {
     AiVideoMergeUrl : [],
     AudioToVideoTranscription : [],
-    FullAudioToVideoTranscription : ''
+    FullAudioToVideoTranscription : '',
+    ProgressInformation : ''
 };
 
 
@@ -35,6 +37,11 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 FullAudioToVideoTranscription : payload
+            }   
+        case ProgressInformationReducer:
+            return {
+                ...state,
+                ProgressInformation : payload
             }   
      
         default:

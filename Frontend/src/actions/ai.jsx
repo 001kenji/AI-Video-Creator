@@ -33,6 +33,7 @@ export const PromptMergeVideos = (props) => async dispatch => {
                 type: SUCCESS_EVENT,
                 payload:  parsedData.success
             });
+            
         }
     }    
 
