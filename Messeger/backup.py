@@ -262,12 +262,11 @@ def oauth_callback(request):
     return JsonResponse({'message': 'OAuth authentication successful!'})
 
 
-async def delete_file(file_path: str):
+def delete_file(file_path: str):
     """Asynchronously delete a file if it exists."""
-    exists = await asyncio.to_thread(os.path.exists, file_path)
-    if exists:
+    if os.path.exists(file_path):
         try:
-            await asyncio.to_thread(os.remove, file_path)
+            os.remove(file_path)
             print(f"File deleted: {file_path}")
         except Exception as e:
             print(f"Error deleting file {file_path}: {e}")
@@ -280,22 +279,29 @@ async def get_account(email: str) -> QuerySet:
     return await sync_to_async(Account.objects.filter, thread_sensitive=True)(email=email)
 
 
-async def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
+def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
     """Create thumbnail from a locally downloaded image file"""
-    def create_thumb():
-        try:
-            print('Generating thumbnail...')
-            with Image.open(image_url) as img:
-                if img.mode in ('RGBA', 'P'):
-                    img = img.convert('RGB')
-                img.thumbnail(size, resample=Image.Resampling.LANCZOS)
-                img.save(thumbnail_path, "JPEG", quality=85)
-            print('Thumbnail generated')
-            return True
-        except Exception as e:
-            print(f"Thumbnail error: {str(e)}")
-            return False
-    return await asyncio.to_thread(create_thumb)
+    try:
+        print('generating thumbnail')
+        # Process in executor to avoid blocking
+        with Image.open(image_url) as img:
+            # Convert to RGB if needed
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+                
+            # Use modern resampling filter
+            img.thumbnail(
+                size,
+                resample=Image.Resampling.LANCZOS  # Replacement for ANTIALIAS
+            )
+            img.save(thumbnail_path, "JPEG", quality=85)
+        #_generate_thumbnail_from_file(image_url, thumbnail_path, size)
+        print('thumbnail generated')
+        
+        return True
+    except Exception as e:
+        print(f"Thumbnail error: {str(e)}")
+        return False
 
 
 @method_decorator(csrf_exempt,name='dispatch')

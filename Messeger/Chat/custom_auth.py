@@ -157,4 +157,5 @@ class SetHeaderMiddleware:
         response['Content-Disposition'] = 'inline'
         response['X-Content-Type-Options'] = 'nosniff'
         response['X-Frame-Options'] = 'deny'
+        response['X-Accel-Buffering'] = 'no'
         return response   

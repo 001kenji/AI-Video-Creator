@@ -52,6 +52,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const AiVideoMergeUrl = useSelector((state) => state.AiReducer.AiVideoMergeUrl)
     const AudioToVideoTranscription = useSelector((state) => state.AiReducer.AudioToVideoTranscription)
     const FullAudioToVideoTranscription = useSelector((state) => state.AiReducer.FullAudioToVideoTranscription)
+    const AudioToVideoTranscriptionStatus = useSelector((state) => state.AiReducer.AudioToVideoTranscriptionStatus)
     const ProgressInformation = useSelector((state) => state.AiReducer.ProgressInformation)
     const [MediaGallary,SetMediaGallary] = useState({
         'type' : '',
@@ -78,12 +79,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'SocialMediaNumberImagesOptions' : [],
         'VideoAudioModeOptions' : [],
         'VideoAudioModeSelectedOptions' : [],
-        'VideoListDetails' : '',
+        'VideoListDetails' : ``,
         'SelectedAudioClassificationOptions' : [],
         'VideoListDetailsWithImages' : [],
         'UploadedVideoId' : []
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
+    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -185,6 +186,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             //     }
             // })
             
+        }
+        if(AudioToVideoTranscriptionStatus == 'failed'){
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'FirstStepLevel' : 1,
+                    'progressLevel' : 1,
+                    'LoadingVideoList' : false
+                }
+            })
         }
     },[AudioToVideoTranscription,FullAudioToVideoTranscription])
 
@@ -1897,7 +1908,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
-                                            </div>                                        :
+                                            </div> :
                                             <button disabled={false} onClick={() => ToongleSecondProgressLevel('CreateTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
                                     }
                                 </div>
@@ -1915,7 +1926,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             </div>
                                         </div>
                                         {/* arrow up down div */}
-                                        <div className={` ${PostContentContainer.VideoListDetailsWithImages.length != 0 ?' invisible' : 'visible'} transition-all duration-300 flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base  `} >
+                                        <div className={` ${PostContentContainer.VideoListDetailsWithImages.length == 0 ?' invisible' : 'visible'} transition-all duration-300 flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base  `} >
                                             <IoChevronUpOutline  onClick={() => ScrollVideoImageCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                             <IoChevronDownOutline  onClick={() => ScrollVideoImageCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                         </div>

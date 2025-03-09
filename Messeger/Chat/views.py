@@ -3,6 +3,7 @@ import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob,textwrap,shutil
 from django.core.files.storage import default_storage
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from django.http import StreamingHttpResponse
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated,AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -480,135 +481,142 @@ class MergeView(APIView):
             responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
             return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
 
-@method_decorator(csrf_exempt,name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class MergeAudioToVideoView(APIView):
     permission_classes = (IsAuthenticated,)
     throttle_classes = [fileUploadthrottler]
+    
     @circuit
     def post(self, request):        
-        try:
-            data = request.data
-            emailval = sanitize_string(data['email'])
-            dataval = json.loads(data['data'])
-            SocialMediaType = sanitize_string(data['SocialMediaType'])
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            accountref = Account.objects.filter(email = emailval)
-            custom_storage = FileSystemStorage(location=folder_path)
-            if not accountref.exists():
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
-            
-            position = 0
-            response_url = []
-            
-            for items in dataval:
-                print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
-                # Extract image paths
-                image_image_list = items.get("ImageList", "")
-                audio_name = items.get("audio", "fallback.mp3")
-                print(image_image_list)
+        def event_stream():
+            try:
+                data = request.data
+                emailval = sanitize_string(data['email'])
+                dataval = json.loads(data['data'])
+                SocialMediaType = sanitize_string(data['SocialMediaType'])
+                folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+                accountref = Account.objects.filter(email = emailval)
+                custom_storage = FileSystemStorage(location=folder_path)
+                if not accountref.exists():
+                    responseval = {'failed' : 'This account does not exist.Login to proceed.'}
+                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
                 
-                image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,SocialMediaType, item.get("name", "").strip())) for item in image_image_list if "name" in item]
-                # for path in image_paths:
-                #         print(path)  # This will show single backslashes
+                position = 0
+                response_url = []
+                yield json.dumps({"progress": f"start"}) + "\n"
+                yield " " * 4096  + "\n"
+                for items in dataval:
+                    print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
+                    yield json.dumps({"progress": f"Processing {position + 1} video"}) + "\n"
+                    yield " " * 4096  + "\n"
+                    # Extract image paths
+                    image_image_list = items.get("ImageList", "")
+                    audio_name = items.get("audio", "fallback.mp3")
+                    print(image_image_list)
+                    
+                    image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,SocialMediaType, item.get("name", "").strip())) for item in image_image_list if "name" in item]
 
-                num_images = len(image_paths)
-                if num_images == 0:
-                    responseval = {'failed' : 'There were no images identified'}
-                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-                
-                
-                # Calculate duration per image
-                # Extract audio duration
-                custom_storage_audio_path = os.path.join(folder_path,audio_name)
-                audio_clip = AudioFileClip(custom_storage_audio_path)
-                audio_duration = audio_clip.duration  # Get duration in seconds
-                audio_clip.close()
+                    
+                    num_images = len(image_paths)
+                    if num_images == 0:
+                        responseval = {'failed': 'There were no images identified'}
+                        yield json.dumps(responseval) + "\n"
+                        return Response(responseval, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    # Extract audio duration
+                    # Extract audio duration
+                    custom_storage_audio_path = os.path.join(folder_path,audio_name)
+                    audio_clip = AudioFileClip(custom_storage_audio_path)
+                    audio_duration = audio_clip.duration  # Get duration in seconds
+                    audio_clip.close()
 
-                duration_per_image = audio_duration / num_images
-                T = audio_duration / num_images
-                transition_duration = 1.0  # duration of each transition in seconds
-                # List to hold each image clip stream
-                streams = []
-                
-                # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
-                for i, img in enumerate(image_paths):
-                    print(f'\n\n Image path {img}')
-                    # For all images we use the same duration (the xfade filter will manage overlapping transitions)
-                    # You may adjust duration per image if you want the last image to have no transition.
-                    stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
-                    streams.append(stream)
-                
-                # Chain the streams using xfade to add smooth transitions.
-                # The offset for the first transition will be (T - transition_duration),
-                # and for each subsequent transition, we add (T - transition_duration).
-                output_stream = streams[0]
-                for i in range(1, len(streams)):
-                    offset = i * (T - transition_duration)
-                    output_stream = ffmpeg.filter(
-                        [output_stream, streams[i]],
-                        'xfade',
-                        transition='fade',           # change to any supported effect, e.g. 'wipeleft'
-                        duration=transition_duration,
-                        offset=offset
+                    duration_per_image = audio_duration / num_images
+                    T = audio_duration / num_images
+                    transition_duration = 1.0  # duration of each transition in seconds
+                    # List to hold each image clip stream
+                    streams = []
+                    
+                    # Create an FFmpeg input stream for each image.
+                    for i, img in enumerate(image_paths):
+                        print(f'\n\n Image path {img}')
+                        yield json.dumps({"progress": f"Processing image"}) + "\n"
+                        yield " " * 4096  + "\n"
+                        stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
+                        streams.append(stream)
+                    
+                    # Chain the streams using xfade.
+                    output_stream = streams[0]
+                    for i in range(1, len(streams)):
+                        offset = i * (T - transition_duration)
+                        output_stream = ffmpeg.filter(
+                            [output_stream, streams[i]],
+                            'xfade',
+                            transition='fade',           # change to any supported effect, e.g. 'wipeleft'
+                            duration=transition_duration,
+                            offset=offset
+                        )
+                    print('\n\n Image streams generated') 
+                    
+                    # Define output video paths
+                    custom_videos_name = f'merge_audio_to_video_{position}'
+                    video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
+                    final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
+                    delete_file(video_no_audio)
+                    delete_file(final_video)
+                    # print(video_no_audio,final_video)
+                    # Generate video from images
+                    print('Generate video from images with transitions')
+                    yield json.dumps({"progress": "Generating video from images"}) + "\n"
+                    yield " " * 4096  + "\n"
+                    ffmpeg.output(
+                        output_stream,
+                        video_no_audio,
+                        vcodec='libx264',
+                        pix_fmt='yuv420p',
+                        r=25
+                    ).run(overwrite_output=True)
+                    
+                    print('Merge video with audio')
+                    yield json.dumps({"progress": "Merging video with audio"}) + "\n"
+                    yield " " * 4096  + "\n"
+                    (
+                        ffmpeg
+                        .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
+                        .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
+                        .run(overwrite_output=True)
                     )
-                print('\n\n Image streams generated') 
-            
-                # Define output video paths
+                    # genearate video thumbnail
+                    image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
+                    print(image_url_thumbnail) 
                 
-                custom_videos_name = f'merge_audio_to_video_{position}'
-                video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
-                final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
-                delete_file(video_no_audio)
-                delete_file(final_video)
-                # print(video_no_audio,final_video)
-                # Generate video from images
-                print('Generate video from images with transitions')
+                    if image_url_thumbnail != False:
+                        image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT, emailval, 'youtube', image_url_thumbnail)
+                        thumbnail_path = os.path.join(folder_path, f"{position}_thumbnail.jpeg")
+                        delete_file(thumbnail_path)
+                        print('\nconfigs: ', image_url_thumbnail_val, thumbnail_path)
+                        yield json.dumps({"progress": "Generating video thumbnail"}) + "\n"
+                        create_thumbnail(image_url_thumbnail_val, thumbnail_path)
+                    
+                    response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
+                    position += 1
+                    print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+                    yield json.dumps({"progress": f"Completed {position} video over {len(dataval)}"}) + "\n"
+                    yield " " * 4096  + "\n"
                 
-                ffmpeg.output(
-                    output_stream,
-                    video_no_audio,
-                    vcodec='libx264',
-                    pix_fmt='yuv420p',
-                    r=25
-                ).run(overwrite_output=True)
-                
-
-                # Merge video with audio
-                print('Merge video with audio')
-                (
-                    ffmpeg
-                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
-                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                    .run(overwrite_output=True)
-                )
-                # genearate video thumbnail
-                image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
-                print(image_url_thumbnail) 
-                if image_url_thumbnail != False:
-                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
-                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
-                    #delete an existing thumbnail
-                    delete_file(thumbnail_path)
-                    print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
-                    create_thumbnail(image_url_thumbnail_val, thumbnail_path)
-                
-                response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
-                position += 1
-                print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
-
-            
-            return Response({
-                'success' : 'Your video is successfuly created',
-                "video_url": response_url
-            }, status=200)
-
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-
+                final_response = {
+                    'success': 'Your video is successfuly created',
+                    "video_url": response_url
+                }
+                yield json.dumps(final_response) + "\n"
+            except Exception as e:
+                print(e)
+                responseval = {'failed': 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
+                yield json.dumps(responseval) + "\n"
+        # return StreamingHttpResponse(event_stream(), content_type="application/json")
+        response = StreamingHttpResponse(event_stream(), content_type="application/json")
+        response['Cache-Control'] = 'no-cache'  # Prevent caching
+        response["X-Accel-Buffering"] = "no"
+        return response
 
 # Replace with your public API URL from the Google Colab ngrok FastAPI transcription service
 # PUBLIC_API_URL = "https://your-ngrok-url.ngrok.io"  # <-- update this!
@@ -692,67 +700,74 @@ async def transcribe_and_split_audio_api(audio_list, num_splits):
             print(f"Error processing {items}: {e}")
 
 
-
-@method_decorator(csrf_exempt,name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
 class UploadAudioToVideoAudiosView(APIView):
     permission_classes = (IsAuthenticated,)
     throttle_classes = [fileUploadthrottler]
+
     @circuit
     def post(self, request):        
-        try:
-            data = request.data
-            emailval = sanitize_string(data['email'])
-            SocialMediaType = sanitize_string(data['SocialMediaType'])
-            audio_files = request.data.getlist("audio")
-            NumberOfScripts = sanitize_string(data['NumberOfImages'])
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            if not os.path.exists(folder_path):
-                os.mkdir(folder_path)
-            else:
-                shutil.rmtree(folder_path)
-                os.mkdir(folder_path)
-            accountref = Account.objects.filter(email = emailval)
-
-            if not accountref.exists() or emailval == 'gestuser@gmail.com':
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
-
-            if not audio_files or not SocialMediaType or SocialMediaType == '':
-                return Response({'error': 'Missing required files'}, status=400)
-
-            # Save the audio file
-            
-            custom_storage_audio_list = []
-            i = 0
-            for audio in audio_files:
-                filename = os.path.join(folder_path, audio.name)
-                delete_file(filename)
-                with open(filename, "wb") as destination:
-                    for chunk in audio.chunks():
-                        destination.write(chunk)
-                    dataval = {
-                        "audio_name" : audio.name,
-                        "audio_path" : filename
-                    }
-                custom_storage_audio_list.append(dataval)                
-            
+        def event_stream():
+            try:
+                data = request.data
+                emailval = sanitize_string(data['email'])
+                SocialMediaType = sanitize_string(data['SocialMediaType'])
+                audio_files = request.data.getlist("audio")
+                NumberOfScripts = sanitize_string(data['NumberOfImages'])
+                folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
+                if not os.path.exists(folder_path):
+                    os.mkdir(folder_path)
+                else:
+                    shutil.rmtree(folder_path)
+                    os.mkdir(folder_path)
                 
-                print(f'saved audio {i}/{len(audio_files)} audios')
-                i += 1
-            
-            print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
-            # tranascipt_data = transcribe_and_split_audio_api(custom_storage_audio_list,int(NumberOfScripts))
-            tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
-                custom_storage_audio_list, int(NumberOfScripts)
-            )            
-            print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
-            return Response({
-                'success' : 'Your transcript is successfuly created',
-                "data":  [] if tranascipt_data == None else tranascipt_data
-            }, status=200)
-
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+                accountref = Account.objects.filter(email=emailval)
+                if not accountref.exists() or emailval == 'gestuser@gmail.com':
+                    responseval = {'failed': 'This account does not exist. Login to proceed.'}
+                    yield json.dumps(responseval) + "\n"
+                    return
+                
+                if not audio_files or not SocialMediaType or SocialMediaType == '':
+                    yield json.dumps({'failed': 'Missing required files'}) + "\n"
+                    return
+                
+                # Save the audio file(s)
+                custom_storage_audio_list = []
+                i = 0
+                for audio in audio_files:
+                    filename = os.path.join(folder_path, audio.name)
+                    delete_file(filename)
+                    with open(filename, "wb") as destination:
+                        for chunk in audio.chunks():
+                            destination.write(chunk)
+                        dataval = {
+                            "audio_name": audio.name,
+                            "audio_path": filename
+                        }
+                    custom_storage_audio_list.append(dataval)
+                    print(f'saved audio {i}/{len(audio_files)} audios')
+                    yield json.dumps({"progress": f"saved audio {i+1}/{len(audio_files)} audios"}) + "\n"
+                    i += 1
+                
+                print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
+                yield json.dumps({"progress": "Transcribing your audio(s)"}) + "\n"
+                # Call your transcription function (synchronously via async_to_sync)
+                tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
+                    custom_storage_audio_list, int(NumberOfScripts)
+                )
+                print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n',tranascipt_data[0])
+                
+                if tranascipt_data is None or len(tranascipt_data[0])  == 0:
+                    responseval = {'failed': 'Seams like we cannot transcribe your data now'}
+                    yield json.dumps(responseval) + "\n"
+                    return
+                final_response = {
+                    'success': 'Successfuly transcribed your audio(s)',
+                    "data": [] if tranascipt_data is None else tranascipt_data
+                }
+                yield json.dumps(final_response) + "\n"
+            except Exception as e:
+                print(e)
+                responseval = {'failed': 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
+                yield json.dumps(responseval) + "\n"
+        return StreamingHttpResponse(event_stream(), content_type="application/json")
