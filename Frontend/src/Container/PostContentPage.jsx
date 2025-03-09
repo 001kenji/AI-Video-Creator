@@ -69,7 +69,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'FirstStepLevel' : 1,
         'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 1,
+        'progressLevel' : 2,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
@@ -79,12 +79,47 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'SocialMediaNumberImagesOptions' : [],
         'VideoAudioModeOptions' : [],
         'VideoAudioModeSelectedOptions' : [],
-        'VideoListDetails' : ``,
+        'VideoListDetails' : `[
+  {
+    "snippet": {
+      "title": "Majestic Eagles in Flight",
+      "description": "Stunning footage of bald eagles soaring through the skies, showcasing their incredible power and grace. Filmed in various locations across North America.",
+      "tags": [
+        "eagle",
+        "bald eagle",
+        "bird of prey",
+        "wildlife",
+        "nature",
+        "documentary",
+        "birds of prey"
+      ],
+      "categoryId": "22"
+    },
+    "status": {
+      "privacyStatus": "public",
+      "madeForKids": true,
+      "selfDeclaredMadeForKids": true
+    },
+    "audio": {
+      "script": "Open on a majestic bald eagle soaring through the vast expanse of the sky.  Its powerful wings beat rhythmically against the wind.  The camera pans to show a breathtaking mountain range in the background.  The eagle circles above, searching for its prey.  We see a close-up shot of its sharp eyes, focusing intently.  A fish is spotted in the river below, and the eagle dives with incredible speed, seizing its catch.  Slow-motion footage captures the elegance of its flight.  A montage of various eagle shots follows, including the eagle feeding its young and a beautiful sunset scene with the eagle silhouetted against the vibrant colors of the sky.  The sounds of nature are present throughout, enhancing the sense of wonder and majesty."
+    },
+    "ImageList": [
+      {
+        "name": "eagle_flight_1.jpg",
+        "description": "A bald eagle in flight, showcasing its powerful wings against a dramatic mountain backdrop."
+      },
+      {
+        "name": "eagle_feeding_young.jpg",
+        "description": "Close-up shot of a bald eagle feeding its young, highlighting the nurturing aspect of its parental care."
+      }
+    ]
+  }
+]`,
         'SelectedAudioClassificationOptions' : [],
         'VideoListDetailsWithImages' : [],
         'UploadedVideoId' : []
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
+    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -390,7 +425,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }
     } 
    
-    const requestWsStream = (msg = null,body = null) => {    
+    const requestWsStream = (msg = null,body = null,NumberOfRequestRetry = 0) => {    
        
         if(msg =='open'){
             
@@ -436,6 +471,42 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             payload : ''
                         })
                     }, 2000);
+                    
+                }else if (val['type'] == 'retry'){
+                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                    var nextNum = Number(NumberOfRequestRetry) + 1
+                    if(NumberOfRequestRetry < 2){
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                        })
+                        var promptConstructed = {
+                            'socialMedia' : PostContentContainer.SelectedSocialMediaType,
+                            'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects based on this idea '${getValues('AIprompt')} ' `,
+                           
+                        }
+                        
+                        setTimeout(() => {
+                            requestWsStream('RequestAIResponse',promptConstructed,nextNum)
+                        }, 4000);
+                    }else {
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Maximum number of retry reached. Try again later'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'SecondStepLevel' : 1,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                        }, 4000);
+                    }
                     
                 }else {
                     SetPostContentContainer((e) => {
@@ -488,6 +559,42 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     })
                 }, 2000);
                 
+            }else if (val['type'] == 'retry'){
+                var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                var nextNum = Number(NumberOfRequestRetry) + 1
+                if(NumberOfRequestRetry < 2){
+                    console.log(NumberOfRequestRetry)
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                    })
+                    
+                    var promptConstructed = {
+                        'socialMedia' : PostContentContainer.SelectedSocialMediaType,
+                        'prompt' : ` Generate an array of strictly ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
+                       
+                    }
+                    setTimeout(() => {
+                        requestWsStream('RequestAITranscriptResponse',promptConstructed,nextNum)
+                    }, 4000);
+                }else {
+                    console.log(NumberOfRequestRetry)
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : 'Maximum number of retry reached. Try again later'
+                    })
+                    setTimeout(() => {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'SecondStepLevel' : 1,
+                                'progressLevel' : 2,
+                            }
+                        })
+                    }, 4000);
+                }
+                
             }else {
                 SetPostContentContainer((e) => {
                     return {
@@ -501,38 +608,70 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }
 
             }else if(data.type == 'RequestCreateImages'){
-            var val = data.message
-            if (val['type'] == 'success') {
-                
-                // console.log(typeof(videoList),videoList)
-                dispatch({
-                    type :ProgressInformationReducer,
-                    payload : 'Images created successfuly'
-                })
-                setTimeout(() => {
+                var val = data.message
+                if (val['type'] == 'success') {
+                    
+                    // console.log(typeof(videoList),videoList)
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : 'Images created successfuly'
+                    })
+                    setTimeout(() => {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'VideoListDetailsWithImages' : val['data'],
+                                'LoadingVideoList' : false,
+                                'SecondStepLevel' : 2,
+                                'progressLevel' : 2,
+                            }
+                        })
+                    }, 2000);
+                    
+                    // ShowToast(val['type'],val['result'])
+                }else if (val['type'] == 'retry'){
+                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                    var nextNum = Number(NumberOfRequestRetry) + 1
+                    if(NumberOfRequestRetry < 3){
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/3`
+                        })
+                        
+                        
+                        setTimeout(() => {
+                            requestWsStream('RequestCreateImages',null,nextNum)
+                        }, 4000);
+                    }else {
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Maximum number of retry reached. Try again later'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'SecondStepLevel' : 1,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                        }, 4000);
+                    }
+                    
+                }else {
                     SetPostContentContainer((e) => {
                         return {
                             ...e,
-                            'VideoListDetailsWithImages' : val['data'],
                             'LoadingVideoList' : false,
-                            'SecondStepLevel' : 2,
+                            'SecondStepLevel' : 1,
                             'progressLevel' : 2,
                         }
                     })
-                }, 2000);
-                
-                // ShowToast(val['type'],val['result'])
-            }else {
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'LoadingVideoList' : false,
-                        'SecondStepLevel' : 1,
-                        'progressLevel' : 2,
-                    }
-                })
-                ShowToast(val['type'],val['result'])
-            }
+                    ShowToast(val['type'],val['result'])
+                }
             }else if(data.type == 'RequestCreateImagesTranscript'){
                 var val = data.message
                 if (val['type'] == 'success') {
@@ -554,6 +693,38 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     })
                 }, 2000);
                 // ShowToast(val['type'],val['result'])
+                }else if (val['type'] == 'retry'){
+                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                    var nextNum = Number(NumberOfRequestRetry) + 1
+                    if(NumberOfRequestRetry < 3){
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/3`
+                        })
+                        
+                        
+                        setTimeout(() => {
+                            requestWsStream('RequestCreateImagesTranscript',null,nextNum)
+                        }, 4000);
+                    }else {
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Maximum number of retry reached. Try again later'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'SecondStepLevel' : 1,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                        }, 4000);
+                    }
+                    
                 }else {
                 SetPostContentContainer((e) => {
                     return {
@@ -591,6 +762,38 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     payload : []
                 })
                 ShowToast(val['type'],val['result'])
+            }else if (val['type'] == 'retry'){
+                var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                var nextNum = Number(NumberOfRequestRetry) + 1
+                if(NumberOfRequestRetry < 2){
+                    console.log(NumberOfRequestRetry)
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                    })
+                    
+                    var mediaType = PostContentContainer.SelectedSocialMediaType
+                    setTimeout(() => {
+                        requestWsStream('RequestUploadVideos',mediaType,nextNum)
+                    }, 4000);
+                }else {
+                    console.log(NumberOfRequestRetry)
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : 'Maximum number of retry reached. Try again later'
+                    })
+                    setTimeout(() => {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'SecondStepLevel' : 1,
+                                'progressLevel' : 2,
+                            }
+                        })
+                    }, 4000);
+                }
+                
             }else {
                 SetPostContentContainer((e) => {
                     return {
@@ -603,8 +806,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 ShowToast(val['type'],val['result'])
             }
             }else if(data.type == 'RequestClearServer'){
-            var val = data.message
-            ShowToast(val['type'],val['result'])
+                var val = data.message
+                ShowToast(val['type'],val['result'])
             }
         };
         WsDataStream.current.onopen = (e) => {
@@ -627,7 +830,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'message' : 'RequestAIResponse',
                         'email' : UserEmail,
                         'prompt' : body,
-                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }else if(msg == 'RequestAITranscriptResponse') {
@@ -637,7 +841,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'message' : 'RequestAITranscriptResponse',
                         'email' : UserEmail,
                         'prompt' : body,
-                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }else if(msg == 'RequestCreateImages') {
@@ -647,7 +852,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'message' : 'RequestCreateImages',
                         'email' : UserEmail,
                         'prompt' : PostContentContainer.VideoListDetails,
-                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType
+                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }else if(msg == 'RequestCreateImagesTranscript') {
@@ -657,7 +863,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'message' : 'RequestCreateImagesTranscript',
                         'email' : UserEmail,
                         'prompt' : PostContentContainer.VideoListDetails,
-                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType
+                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }else if(msg == 'RequestUploadVideos') {
@@ -669,6 +876,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'prompt' : PostContentContainer.VideoListDetailsWithImages,
                         'VideoUrl' : AiVideoMergeUrl,
                         'SocialMediaType' : body,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }else if(msg == 'RequestClearServer') {
@@ -676,7 +884,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 WsDataStream.current.send(
                     JSON.stringify({
                         'message' : 'RequestClearServer',
-                        'email' : UserEmail
+                        'email' : UserEmail,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
             }
@@ -820,7 +1029,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Creating your images. Once created they will be saved. Please hold '
             })
-            requestWsStream('RequestCreateImages')
+            requestWsStream('RequestCreateImages',null,0)
         }if(props == 'CreateTranscript'){
             SetPostContentContainer((e)=> {
                 return {
@@ -920,7 +1129,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     type :ProgressInformationReducer,
                     payload : 'Uploading videos to youtube. You will be notified shotly. Please hold'
                 })
-                requestWsStream('RequestUploadVideos',mediaType)
+                requestWsStream('RequestUploadVideos',mediaType,0)
             }
             
         }else if (props == 'Reset'){
@@ -1497,7 +1706,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-fit gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1564,7 +1773,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-fit gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1667,7 +1876,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                    <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                    <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                         <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                     </Typist>
                                                     <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1722,7 +1931,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1838,7 +2047,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1904,7 +2113,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1940,7 +2149,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
@@ -1993,7 +2202,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <div className="flex flex-col w-full gap-3" >
-                                                <Typist className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
                                                     <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>

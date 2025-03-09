@@ -140,13 +140,23 @@ YoutubeCustomPromptForAudioToVideo = """
         `;
 """
 
+
+class RetryCustomError(Exception):
+    def __init__(self, retry, message):
+        self.retry = retry
+        self.message = message
+        super().__init__(retry, message)
+
+
 @asyncCircuitBreaker
-async def RequestAIResponseFunc(prompt,email):
+async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
     """Generate AI text content asynchronously."""
     try:
-        model = settings.AI_MODEL
-      
-        response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
+        try:
+            model = settings.AI_MODEL
+            response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
+        except Exception as e:
+            raise RetryCustomError("retry", "It seems there is an issue with your request. Try again later❌")
         #print(response,type(response))
         cleaned_json_string = response.text.strip("```json\n").strip("```")
 
@@ -156,10 +166,25 @@ async def RequestAIResponseFunc(prompt,email):
         #response.text
         reponseval = {'type' : 'success','status' : 'success','result' : json_data}
         return reponseval
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
         print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'It seams there is an issue with your request. Try again later'}
-        return reponseval
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
 
 @asyncCircuitBreaker
 async def RequestRequestClearServer(email):
@@ -187,6 +212,7 @@ async def download_image(image_url, filename, emailval, SocialMediaType):
     async with aiohttp.ClientSession() as session:
         async with session.get(image_url) as response:
             if response.status == 200:
+                
                 content = await response.read()
                 folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
                 file_path = os.path.join(folder_path, filename)
@@ -210,31 +236,36 @@ async def download_image(image_url, filename, emailval, SocialMediaType):
                 print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
             else:
                 print(f"\n\nFailed to download {filename} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
+                raise RetryCustomError("retry", "An error occurred when downloading your images❌")
+                
     return filename
 
 
 @asyncCircuitBreaker
 async def generate_image_async(description, title):
-    # Create an asynchronous pollinations image model.
-    image_model = pollinationsAi.Async.Image(
-        model=pollinationsAi.Image.flux(),
-        seed="random",
-        width=1024,
-        height=1024,
-        enhance=False,
-        nologo=True,
-        private=True,
-        safe=False,
-        referrer="pollinations.py"
-    )
-    # Generate the image asynchronously.
-    image = await image_model(prompt=f'{description}')
-    # Offload the synchronous image.save() call to a thread.
-    await asyncio.to_thread(image.save, file=f'{title}.jpg')
+    try:
+        # Create an asynchronous pollinations image model.
+        image_model = pollinationsAi.Async.Image(
+            model=pollinationsAi.Image.flux(),
+            seed="random",
+            width=1024,
+            height=1024,
+            enhance=False,
+            nologo=True,
+            private=True,
+            safe=False,
+            referrer="pollinations.py"
+        )
+        # Generate the image asynchronously.
+        image = await image_model(prompt=f'{description}')
+        # Offload the synchronous image.save() call to a thread.
+        await asyncio.to_thread(image.save, file=f'{title}.jpg')
+    except Exception as e:
+        raise RetryCustomError("retry", "Seams like there is an issue when generating your image❌")
 
 
 @asyncCircuitBreaker
-async def RequestCreateImagesFunc(prompt, email, SocialMediaType):
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
     """Generate AI images content asynchronously."""
     try:
         dataval = prompt
@@ -265,6 +296,7 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType):
                 # Construct API image URL.
                 API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
                 
+
                 # Generate image asynchronously.
                 await generate_image_async(ImageDescription, title)
                 # Download the generated image.
@@ -284,6 +316,18 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType):
             'data': dataval
         }
         return responseval
+    
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
         print(e)
         responseval = {
@@ -293,9 +337,8 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType):
         }
         return responseval
 
-
 @asyncCircuitBreaker
-async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType):
+async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
     """Generate AI images content asynchronously for transcripts."""
     try:
         dataval = prompt
@@ -332,6 +375,17 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType):
             'data': dataval
         }
         return responseval
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
         print(e)
         responseval = {
@@ -347,68 +401,71 @@ redisConnection = settings.REDIS_CONNECTION
 SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
 async def get_authenticated_service(email, credential_file_path, token_path):
     """Authenticate and return YouTube service with persistent authentication in a non-blocking way."""
-    credentials = None
+    try:
+        credentials = None
 
-    # Check if token exists asynchronously.
-    token_exists = await asyncio.to_thread(os.path.exists, token_path)
-    if token_exists:
-        print("🔑 Loading existing token...")
-        async with aiofiles.open(token_path, 'r') as token_file:
-            token_content = await token_file.read()
-            credentials_data = json.loads(token_content)
-            # Wrap the synchronous call in a thread.
-            credentials = await asyncio.to_thread(Credentials.from_authorized_user_info, credentials_data, SCOPES)
+        # Check if token exists asynchronously.
+        token_exists = await asyncio.to_thread(os.path.exists, token_path)
+        if token_exists:
+            print("🔑 Loading existing token...")
+            async with aiofiles.open(token_path, 'r') as token_file:
+                token_content = await token_file.read()
+                credentials_data = json.loads(token_content)
+                # Wrap the synchronous call in a thread.
+                credentials = await asyncio.to_thread(Credentials.from_authorized_user_info, credentials_data, SCOPES)
 
-    # If credentials are missing or invalid, refresh or perform new OAuth flow.
-    if not credentials or not credentials.valid:
-        if credentials and credentials.expired and credentials.refresh_token:
-            try:
-                print("🔄 Refreshing token...")
-                # Refresh credentials in a thread.
-                await asyncio.to_thread(credentials.refresh, Request())
-            except Exception as e:
-                print(f"⚠ Token refresh failed: {e}")
-                credentials = None
+        # If credentials are missing or invalid, refresh or perform new OAuth flow.
+        if not credentials or not credentials.valid:
+            if credentials and credentials.expired and credentials.refresh_token:
+                try:
+                    print("🔄 Refreshing token...")
+                    # Refresh credentials in a thread.
+                    await asyncio.to_thread(credentials.refresh, Request())
+                except Exception as e:
+                    print(f"⚠ Token refresh failed: {e}")
+                    credentials = None
 
-        if not credentials:
-            print("🔐 New authentication required...")
+            if not credentials:
+                print("🔐 New authentication required...")
 
-            # Define a helper to run the OAuth flow synchronously.
-            def run_oauth_flow():
-                flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-                    credential_file_path, SCOPES
-                )
-                # Example: generate a unique key for Redis (if needed)
-                auth_key = f"oauth_flow:{email}"
-                print('Store authentication state in Redis')
-                auth_url, state = flow.authorization_url(
-                    access_type="offline",  # Ensures refresh token is issued.
-                    prompt='consent'
-                )
-                # Assuming redisConnection is available and thread-safe.
-                redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)
-                print('Authenticate user via local server (blocking call)')
-                creds = flow.run_local_server(
-                    port=8080,
-                    open_browser=True,
-                    redirect_uri_trailing_slash=False
-                )
-                return creds
+                # Define a helper to run the OAuth flow synchronously.
+                def run_oauth_flow():
+                    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                        credential_file_path, SCOPES
+                    )
+                    # Example: generate a unique key for Redis (if needed)
+                    auth_key = f"oauth_flow:{email}"
+                    print('Store authentication state in Redis')
+                    auth_url, state = flow.authorization_url(
+                        access_type="offline",  # Ensures refresh token is issued.
+                        prompt='consent'
+                    )
+                    # Assuming redisConnection is available and thread-safe.
+                    redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)
+                    print('Authenticate user via local server (blocking call)')
+                    creds = flow.run_local_server(
+                        port=8080,
+                        open_browser=True,
+                        redirect_uri_trailing_slash=False
+                    )
+                    return creds
 
-            # Run the blocking OAuth flow in a separate thread.
-            credentials = await asyncio.to_thread(run_oauth_flow)
+                # Run the blocking OAuth flow in a separate thread.
+                credentials = await asyncio.to_thread(run_oauth_flow)
 
-        # Save new token using asynchronous file I/O.
-        print("💾 Saving new token for future use")
-        async with aiofiles.open(token_path, 'w') as token_file:
-            await token_file.write(credentials.to_json())
+            # Save new token using asynchronous file I/O.
+            print("💾 Saving new token for future use")
+            async with aiofiles.open(token_path, 'w') as token_file:
+                await token_file.write(credentials.to_json())
 
-    # Build the YouTube service in a thread (since discovery.build is blocking).
-    def build_youtube_service():
-        return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-    youtube = await asyncio.to_thread(build_youtube_service)
-    print("✅ Authentication successful!")
-    return youtube
+        # Build the YouTube service in a thread (since discovery.build is blocking).
+        def build_youtube_service():
+            return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+        youtube = await asyncio.to_thread(build_youtube_service)
+        print("✅ Authentication successful!")
+        return youtube
+    except Exception as e:
+        raise RetryCustomError("retry", "There seams to be a proble when authenticating you❌")
 
 async def is_video_a_short(video_path):
     """Check asynchronously if the video is a YouTube Short"""
@@ -424,7 +481,7 @@ async def is_video_a_short(video_path):
 
 
 @asyncCircuitBreaker
-async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl):
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,NumberOfRequestRetry):
     """Upload video to YouTube with metadata"""
     try:
         
@@ -515,13 +572,25 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl):
             'video_id': video_id_list
         }
         
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
         print(f"Upload error: {str(e)} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
-        return {
+        responseval = {
             'type': 'error',
             'status': 'error',
             'result': f'Video upload failed. Please try again. {str(e)}'
         }
+        return responseval
 
 
 
@@ -765,11 +834,12 @@ class AIConsumer(AsyncWebsocketConsumer):
                 email = sanitize_string(text_data_json['email'])
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 SocialMediaPromptSelected = YoutubeCustomPrompt
                 image_list_script = f'each objects ImageList should have {numberOfImagesPerObject} objects'
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected} {image_list_script}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_response(prompt, email))
+                task = asyncio.create_task(self.handle_request_ai_response(prompt, email,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestAITranscriptResponse'):
@@ -777,25 +847,29 @@ class AIConsumer(AsyncWebsocketConsumer):
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
                 SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email))
+                task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImages'):
                 email = sanitize_string(text_data_json['email'])
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType))
+                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImagesTranscript'):
                 email = sanitize_string(text_data_json['email'])
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType))
+                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestUploadVideos'):
@@ -803,8 +877,9 @@ class AIConsumer(AsyncWebsocketConsumer):
                 prompt = text_data_json['prompt']
                 VideoUrl = text_data_json['VideoUrl']
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl))
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestClearServer'):
@@ -814,23 +889,23 @@ class AIConsumer(AsyncWebsocketConsumer):
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
 
-    async def handle_request_ai_response(self, prompt, email):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email)
+    async def handle_request_ai_response(self, prompt, email,NumberOfRequestRetry):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestAIResponse')
-    async def handle_request_ai_transcript_response(self, prompt, email):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email)
+    async def handle_request_ai_transcript_response(self, prompt, email,NumberOfRequestRetry):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestAITranscriptResponse')
     async def handle_request_clear_server(self, email):
         val = await RequestRequestClearServer(email=email)
         await self.send_msg(data=val, type='RequestClearServer')
-    async def handle_request_create_images(self, prompt, email,SocialMediaType):
-        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType)
+    async def handle_request_create_images(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
+        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestCreateImages')
-    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType):
-        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType)
+    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
+        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestCreateImagesTranscript')
-    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl):
-        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl)
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestUploadVideos')
     
 
