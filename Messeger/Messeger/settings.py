@@ -219,31 +219,19 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 CORS_ALLOW_CREDENTIALS = True
 
-ALLWOED_REDIRECT_URIS = [
-    os.environ.get('FRONTEND_URL'),
-    ]
-
-# #to prevent csrf attack
-# CSRF_COOKIE_NAME = "Inject"
-# CSRF_COOKIE_SECURE = True # only for httpp
-# SESSION_COOKIE_SECURE = False# only for httpp
-# CSRF_COOKIE_HTTPONLY = False
-# CSRF_COOKIE_SAMESITE = 'None'  # Change from 'Lax' to 'None'
-# SESSION_COOKIE_SAMESITE = 'None'
-# CIRCUIT_BREAKER_BACKEND = 'circuitbreaker.backends.memory.MemoryBackend'
-# CIRCUIT_BREAKER_DEFAULT_TIMEOUT = 60  
-# CIRCUIT_BREAKER_DEFAULT_FAILURE_THRESHOLD = 5
-# CIRCUIT_BREAKER_DEFAULT_RECOVERY_TIMEOUT = 30  
-
 #to prevent csrf attack
 CSRF_COOKIE_NAME = "Inject"
-CSRF_COOKIE_SECURE = True # only for httpp
-SESSION_COOKIE_SECURE = True# only for httpp
+CSRF_COOKIE_SECURE = False # only true for httpp
+SESSION_COOKIE_SECURE = False# only true for httpp
 CIRCUIT_BREAKER_BACKEND = 'circuitbreaker.backends.memory.MemoryBackend'
 CIRCUIT_BREAKER_DEFAULT_TIMEOUT = 60  
 CIRCUIT_BREAKER_DEFAULT_FAILURE_THRESHOLD = 5
 CIRCUIT_BREAKER_DEFAULT_RECOVERY_TIMEOUT = 30  
 
+
+ALLWOED_REDIRECT_URIS = [
+    os.environ.get('FRONTEND_URL'),
+    ]
 
 DJOSER = {
     'LOGIN_FIELD': 'email', 

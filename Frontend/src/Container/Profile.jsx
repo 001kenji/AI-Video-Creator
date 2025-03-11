@@ -202,12 +202,6 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
         
     },[db,extrainfo])
     
-    // useEffect(() => {
-    //     if(ProfileDB != null){
-
-    //     }
-       
-    // },[ProfileDB,extrainfo])
     
     useEffect(() => {
         //console.log('called',StoreProfileAccount)
@@ -227,7 +221,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                 }
             })          
            
-            var profilepicval = `http://127.0.0.1:8000/media/${ProfilePicurlpath}`
+            var profilepicval = `${import.meta.env.VITE_APP_API_URL}/media${ProfilePicurlpath}`
             SetProfileCoverPhoto(profilepicval)
             SetProfilePicturePhoto(profilepicval)          
            
