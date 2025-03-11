@@ -101,7 +101,7 @@ const Home = ({logout,FetchLogout ,isAuthenticated,load_user,GetCSRFToken}) => {
     
     useEffect(() => {
         if(UserRefreshToken){
-            console.log('loading')
+            //console.log('loading')
             CheckAuthenticated();
             load_user();
             setHomeauthorized(true)

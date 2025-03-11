@@ -26,6 +26,7 @@ export const INTERCEPTER = 'INTERCEPTER'
 export const ToogleTheme = 'ToogleTheme'
 export const ShowLoginContainerReducer = 'ShowLoginContainerReducer'
 export const PageToogleReducer = 'PageToogleReducer'
+
 // profile types
 export const ProfileAboutReducer = 'ProfileAboutReducer'
 export const FolderListReducer = 'FolderListReducer'
@@ -39,3 +40,13 @@ export const AudioToVideoTranscriptionReducer = 'AudioToVideoTranscriptionReduce
 export const FullAudioToVideoTranscriptionReducer = 'FullAudioToVideoTranscriptionReducer'
 export const ProgressInformationReducer = 'ProgressInformationReducer'
 export const AudioToVideoTranscriptionStatusReducer = 'AudioToVideoTranscriptionStatusReducer'
+export const RetryRequestScopeReducer = 'RetryRequestScopeReducer'
+export const RetryNumberOfRequestMadeReducer = 'RetryNumberOfRequestMadeReducer'
+export const RetryRequestThrottledReducer = 'RetryRequestThrottledReducer'
+export const UploadAudioToVideoRetryBodyReducer = 'UploadAudioToVideoRetryBodyReducer'
+export const UploadAudioToVideoThrottledBodyReducer = 'UploadAudioToVideoThrottledBodyReducer'
+export const MergeAudioToVideoThrottledReducer = 'MergeAudioToVideoThrottledReducer'
+export const MergeAudioToVideoRetryBodyReducer = 'MergeAudioToVideoRetryBodyReducer'
+
+
+

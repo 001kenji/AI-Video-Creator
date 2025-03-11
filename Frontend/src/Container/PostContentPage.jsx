@@ -25,7 +25,7 @@ import Select from "react-select";
 // lottieflow animated icons 
 import ProfileTestImg from '../assets/images/fallback.jpeg'
 import { useParams } from "react-router-dom";
-import { AiVideoMergeUrlReducer, ProgressInformationReducer } from "../actions/types";
+import { AiVideoMergeUrlReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
 // using argon2 pashing for both javascript and py
 //const argon2 = require('argon2');
 const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,UploadAudioToVideoAudios,PromptMergeAudioToVideo}) => {
@@ -53,7 +53,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const AudioToVideoTranscription = useSelector((state) => state.AiReducer.AudioToVideoTranscription)
     const FullAudioToVideoTranscription = useSelector((state) => state.AiReducer.FullAudioToVideoTranscription)
     const AudioToVideoTranscriptionStatus = useSelector((state) => state.AiReducer.AudioToVideoTranscriptionStatus)
+    const RetryRequestScope = useSelector((state) => state.AiReducer.RetryRequestScope)
     const ProgressInformation = useSelector((state) => state.AiReducer.ProgressInformation)
+    const RetryNumberOfRequestMade = useSelector((state) => state.AiReducer.RetryNumberOfRequestMade)
+    const RetryRequestThrottled = useSelector((state) => state.AiReducer.RetryRequestThrottled)
+    const [MaximumRetryNumber,SetMaximumRetryNumber] = useState(3)
     const [MediaGallary,SetMediaGallary] = useState({
         'type' : '',
         'src' : '',
@@ -69,7 +73,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'FirstStepLevel' : 1,
         'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 2,
+        'progressLevel' : 1,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
@@ -79,42 +83,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'SocialMediaNumberImagesOptions' : [],
         'VideoAudioModeOptions' : [],
         'VideoAudioModeSelectedOptions' : [],
-        'VideoListDetails' : `[
-  {
-    "snippet": {
-      "title": "Majestic Eagles in Flight",
-      "description": "Stunning footage of bald eagles soaring through the skies, showcasing their incredible power and grace. Filmed in various locations across North America.",
-      "tags": [
-        "eagle",
-        "bald eagle",
-        "bird of prey",
-        "wildlife",
-        "nature",
-        "documentary",
-        "birds of prey"
-      ],
-      "categoryId": "22"
-    },
-    "status": {
-      "privacyStatus": "public",
-      "madeForKids": true,
-      "selfDeclaredMadeForKids": true
-    },
-    "audio": {
-      "script": "Open on a majestic bald eagle soaring through the vast expanse of the sky.  Its powerful wings beat rhythmically against the wind.  The camera pans to show a breathtaking mountain range in the background.  The eagle circles above, searching for its prey.  We see a close-up shot of its sharp eyes, focusing intently.  A fish is spotted in the river below, and the eagle dives with incredible speed, seizing its catch.  Slow-motion footage captures the elegance of its flight.  A montage of various eagle shots follows, including the eagle feeding its young and a beautiful sunset scene with the eagle silhouetted against the vibrant colors of the sky.  The sounds of nature are present throughout, enhancing the sense of wonder and majesty."
-    },
-    "ImageList": [
-      {
-        "name": "eagle_flight_1.jpg",
-        "description": "A bald eagle in flight, showcasing its powerful wings against a dramatic mountain backdrop."
-      },
-      {
-        "name": "eagle_feeding_young.jpg",
-        "description": "Close-up shot of a bald eagle feeding its young, highlighting the nurturing aspect of its parental care."
-      }
-    ]
-  }
-]`,
+        'VideoListDetails' : ``,
         'SelectedAudioClassificationOptions' : [],
         'VideoListDetailsWithImages' : [],
         'UploadedVideoId' : []
@@ -193,8 +162,130 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 })
             }, 2000);
             
+        }else if((RetryRequestScope == 'MergeAudioToVideoThrottled' || RetryRequestScope == 'failedMergeAudioToVideoRetry') && AiVideoMergeUrl.length == 0 ){
+            console.log('trigger request throttled')
+            setTimeout(() => {
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'SecondStepLevel' : 2,
+                        'progressLevel' : 2,
+                        'ThirdStepLevel' : 1,
+                        'LoadingVideoList' : false
+                    }
+                })
+                dispatch({
+                    type : RetryRequestThrottledReducer,
+                    payload : false
+                })
+                dispatch({
+                    type : RetryRequestScopeReducer,
+                    payload : null
+                })
+            }, 4000);
+        }else if(RetryRequestScope == 'MergeAudioToVideoRetry' && AiVideoMergeUrl.length == 0 ){
+            if(RetryNumberOfRequestMade < 3) {
+                console.log('trigger request throttled')
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'SecondStepLevel' : 2,
+                        'progressLevel' : 2,
+                        'ThirdStepLevel' : 1,
+                        'LoadingVideoList' : true
+                    }
+                })
+                const formData = new FormData()
+                formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
+                formData.append('email',UserEmail)
+                formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
+                var num = Number(RetryNumberOfRequestMade)
+                dispatch({
+                    type :ProgressInformationReducer,
+                    payload : `${ProgressInformation}. No of retries ${num}/${MaximumRetryNumber}`
+                })
+                console.log('retrying',num)
+                formData.append('NumberOfRequestRetry',num)
+                setTimeout(() => {
+                    PromptMergeAudioToVideo(formData)
+                }, 2000);
+            }            
+
         }
-    },[AiVideoMergeUrl])
+    },[AiVideoMergeUrl,RetryRequestScope])
+
+    useEffect(() => {
+        
+        if(RetryRequestScope == 'MergeVideo'){
+            if(RetryNumberOfRequestMade >= 3){
+                dispatch({
+                    type : RetryRequestScopeReducer,
+                    payload : null
+                })
+                dispatch({
+                    type :ProgressInformationReducer,
+                    payload : 'Maximum number of retries reached 🥺. Try again later'
+                })
+                setTimeout(() => {
+                    SetPostContentContainer((e)=> {
+                        return {
+                            ...e,
+                            'SecondStepLevel' : 2,
+                            'progressLevel' : 2,
+                            'ThirdStepLevel' : 1,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                }, 4000);
+                dispatch({
+                    type :RetryNumberOfRequestMadeReducer,
+                    payload : 0
+                })
+                
+            }else if(RetryNumberOfRequestMade < 3) {
+                console.log('current streak request: ',RetryNumberOfRequestMade)
+                if(PostContentContainer.VideoAudioModeSelectedOptions == ''){
+                    ShowToast('warning','Seams like you haven\'t selected audio mode')
+                    return
+                }
+                
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'SecondStepLevel' : 2,
+                        'progressLevel' : 2,
+                        'ThirdStepLevel' : 1,
+                        'LoadingVideoList' : true
+                    }
+                })
+                const formData = new FormData()
+                if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
+                    formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                    formData.append('audio',OneForAllAudioUpload.file)
+                    formData.append('audioName',OneForAllAudioUpload.Name)
+                }else if(PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll'){
+                    formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                    AudioUpload.forEach((audio, index) => {
+                        formData.append(`audio`, audio.file);
+                    });
+                }
+                formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
+                formData.append('email',UserEmail)
+                formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
+                var num = Number(RetryNumberOfRequestMade) + 1
+                formData.append('NumberOfRequestRetry',num)
+                dispatch({
+                    type :ProgressInformationReducer,
+                    payload : `${ProgressInformation}. No of retries ${num}/${MaximumRetryNumber}`
+                })
+                console.log('retrying',num)
+                setTimeout(() => {
+                    PromptMergeVideos(formData)
+                }, 2000);
+            }
+            
+        }
+    },[RetryRequestScope,RetryNumberOfRequestMade])
 
     useEffect(() => {
         //console.log('changes detected: ',AudioToVideoTranscription.length)
@@ -231,6 +322,75 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : false
                 }
             })
+        }else if(AudioToVideoTranscriptionStatus == 'failedRetry'){
+            dispatch({
+                type :ProgressInformationReducer,
+                payload : 'Maximum number of retries reached 🥺. Try again later'
+            })
+            setTimeout(() => {
+                dispatch({
+                    type :RetryNumberOfRequestMadeReducer,
+                    payload : null
+                })
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'FirstStepLevel' : 1,
+                        'progressLevel' : 1,
+                        'LoadingVideoList' : false
+                    }
+                })
+            }, 4000);
+            
+            
+        }else if(AudioToVideoTranscriptionStatus == 'failedThrottled'){
+            
+            setTimeout(() => {
+                dispatch({
+                    type :RetryNumberOfRequestMadeReducer,
+                    payload : null
+                })
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'FirstStepLevel' : 1,
+                        'progressLevel' : 1,
+                        'LoadingVideoList' : false
+                    }
+                })
+            }, 6000);
+            
+            
+        }else if(AudioToVideoTranscriptionStatus == 'retry' && RetryRequestThrottled == false && RetryNumberOfRequestMade != null){
+            if(Number(RetryNumberOfRequestMade) <= 3 ){
+                SetPostContentContainer((e)=> {
+                    return {
+                        ...e,
+                        'FirstStepLevel' : 1,
+                        'progressLevel' :  1,
+                        'LoadingVideoList' : true
+                    }
+                })
+                const formData = new FormData()
+                AudioToVideoContainer.audioFiles.forEach((audio, index) => {
+                    formData.append(`audio`, audio.file);
+                });
+                formData.append('email',UserEmail)
+                formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
+                formData.append('NumberOfImages',PostContentContainer.SocialMediaNumberImagesOptions[0].value)
+
+                var num = Number(RetryNumberOfRequestMade)
+                //console.log('invoking: ',num)
+                formData.append('NumberOfRequestRetry',num)
+                dispatch({
+                    type :ProgressInformationReducer,
+                    payload : `${ProgressInformation}. No of retries ${num}/${MaximumRetryNumber}`
+                })
+                setTimeout(() => {
+                  UploadAudioToVideoAudios(formData)  
+                }, 3000);
+                
+            }
         }
     },[AudioToVideoTranscription,FullAudioToVideoTranscription])
 
@@ -475,11 +635,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }else if (val['type'] == 'retry'){
                     var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                     var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < 2){
+                    if(NumberOfRequestRetry < MaximumRetryNumber){
                         console.log(NumberOfRequestRetry)
                         dispatch({
                             type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
                         })
                         var promptConstructed = {
                             'socialMedia' : PostContentContainer.SelectedSocialMediaType,
@@ -562,11 +722,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }else if (val['type'] == 'retry'){
                 var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                 var nextNum = Number(NumberOfRequestRetry) + 1
-                if(NumberOfRequestRetry < 2){
+                if(NumberOfRequestRetry < MaximumRetryNumber){
                     console.log(NumberOfRequestRetry)
                     dispatch({
                         type :ProgressInformationReducer,
-                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
                     })
                     
                     var promptConstructed = {
@@ -632,11 +792,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }else if (val['type'] == 'retry'){
                     var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                     var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < 3){
+                    if(NumberOfRequestRetry < MaximumRetryNumber){
                         console.log(NumberOfRequestRetry)
                         dispatch({
                             type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/3`
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
                         })
                         
                         
@@ -696,11 +856,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }else if (val['type'] == 'retry'){
                     var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                     var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < 3){
+                    if(NumberOfRequestRetry < MaximumRetryNumber){
                         console.log(NumberOfRequestRetry)
                         dispatch({
                             type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/3`
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
                         })
                         
                         
@@ -765,11 +925,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }else if (val['type'] == 'retry'){
                 var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                 var nextNum = Number(NumberOfRequestRetry) + 1
-                if(NumberOfRequestRetry < 2){
+                if(NumberOfRequestRetry < MaximumRetryNumber){
                     console.log(NumberOfRequestRetry)
                     dispatch({
                         type :ProgressInformationReducer,
-                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/2`
+                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
                     })
                     
                     var mediaType = PostContentContainer.SelectedSocialMediaType
@@ -1015,6 +1175,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     }
   
     function ToongleSecondProgressLevel(props) {
+        dispatch({
+            type :RetryNumberOfRequestMadeReducer,
+            payload : 0
+        })
         if(props == 'Create'){
             SetPostContentContainer((e)=> {
                 return {
@@ -1074,6 +1238,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
+            formData.append('NumberOfRequestRetry',0)
             dispatch({
                 type :ProgressInformationReducer,
                 payload : 'Merging data to video(s). Once created they will be saved'
@@ -1094,6 +1259,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
+            formData.append('NumberOfRequestRetry',0)
             dispatch({
                 type :ProgressInformationReducer,
                 payload : 'Merging data to video(s). Once created they will be saved'
@@ -1447,6 +1613,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Uploading and transcribing your audios. Please hold '
             })
+            formData.append('NumberOfRequestRetry',0)
             UploadAudioToVideoAudios(formData)
         }
     }
@@ -1619,7 +1786,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 console.error("Failed to copy:", err)
             });
     }
-  
     //videos of birds, others are eagles, parots, flamingos and other more
    
     return (
@@ -1786,7 +1952,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             {/* voicing */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
                                 {/*image carousels */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Image previews</p>
+                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 pt-2 " >Image previews</p>
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
                                         <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
@@ -1795,7 +1961,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             </div>
                                         </div>
                                         {/* arrow up down div */}
-                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                        <div className={`flex flex-col ${PostContentContainer.VideoListDetailsWithImages.length <= 1 ? ' invisible' : 'visible'}  justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base`} >
                                             <IoChevronUpOutline  onClick={() => ScrollVideoImageCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                             <IoChevronDownOutline  onClick={() => ScrollVideoImageCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                         </div>
@@ -1812,7 +1978,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             </div>
                                         </div>
                                         {/* arrow up down div */}
-                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                        <div className={` flex flex-col ${PostContentContainer.VideoListDetailsWithImages.length <= 1 ? ' invisible' : 'visible'} justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base`} >
                                             <IoChevronUpOutline  onClick={() => ScrollVideoScriptCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                             <IoChevronDownOutline  onClick={() => ScrollVideoScriptCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                         </div>
@@ -2154,7 +2320,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>                                        :
-                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length == 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
+                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length != 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
                                     }
                                 </div>
                             </div>

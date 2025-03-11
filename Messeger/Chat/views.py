@@ -47,6 +47,13 @@ class VTV_AITokenThrottler(UserRateThrottle):
     scope = 'VTV_AI'
 
 
+class RetryCustomError(Exception):
+    def __init__(self, retry, message):
+        self.retry = retry
+        self.message = message
+        super().__init__(retry, message)
+
+MaximumNumberRetry = 3
 
 def get_csrf_token(request):
     token = get_token(request)
@@ -313,15 +320,17 @@ class MergeView(APIView):
     def post(self, request):        
         try:
             data = request.data
+            NumberOfRequestRetry = int(sanitize_string(data['NumberOfRequestRetry']))
             emailval = sanitize_string(data['email'])
             dataval = json.loads(data['data'])
             AudioScope = data['AudioScope']
             SocialMediaType = sanitize_string(data['SocialMediaType'])
             folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+            
             accountref = Account.objects.filter(email = emailval)
             custom_storage = FileSystemStorage(location=folder_path)
             if not accountref.exists():
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
+                responseval = {'failed' : 'This account does not exist.Login to proceed.❌'}
                 return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
             
             if AudioScope == 'OneForAll':
@@ -329,7 +338,7 @@ class MergeView(APIView):
                 audio_name = data['audioName']
 
                 if not audio_file or not dataval or not SocialMediaType or SocialMediaType == '':
-                    return Response({'error': 'Missing required files'}, status=400)
+                    return Response({'error': 'Missing required files❌'}, status=400)
 
                 # Save the audio file
                 
@@ -347,7 +356,7 @@ class MergeView(APIView):
             elif AudioScope == 'AllForAll':
                 audio_files = request.data.getlist("audio")
                 if not audio_files or not SocialMediaType or SocialMediaType == '':
-                    return Response({'error': 'Missing required files'}, status=400)
+                    return Response({'error': 'Missing required files❌'}, status=400)
 
                 # Save the audio file
                 
@@ -388,7 +397,7 @@ class MergeView(APIView):
 
                 num_images = len(image_paths)
                 if num_images == 0:
-                    responseval = {'failed' : 'There were no images identified'}
+                    responseval = {'failed' : 'There were no images identified❌'}
                     return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
                 
                 
@@ -435,25 +444,28 @@ class MergeView(APIView):
                 # print(video_no_audio,final_video)
                 # Generate video from images
                 print('Generate video from images with transitions')
-                
-                ffmpeg.output(
-                    output_stream,
-                    video_no_audio,
-                    vcodec='libx264',
-                    pix_fmt='yuv420p',
-                    r=25
-                ).run(overwrite_output=True)
-                
+                try:
+                    ffmpeg.output(
+                        output_stream,
+                        video_no_audio,
+                        vcodec='libx264',
+                        pix_fmt='yuv420p',
+                        r=25
+                    ).run(overwrite_output=True)
+                    
 
-                # Merge video with audio
-                print('Merge video with audio')
-                audio_path_val = custom_storage_audio_path if AudioScope == 'OneForAll' else custom_storage_audio_list[position]
-                (
-                    ffmpeg
-                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(audio_path_val), v=1, a=1)
-                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                    .run(overwrite_output=True)
-                )
+                    # Merge video with audio
+                    print('Merge video with audio')
+                    audio_path_val = custom_storage_audio_path if AudioScope == 'OneForAll' else custom_storage_audio_list[position]
+                    (
+                        ffmpeg
+                        .concat(ffmpeg.input(video_no_audio), ffmpeg.input(audio_path_val), v=1, a=1)
+                        .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
+                        .run(overwrite_output=True)
+                    )
+                except Exception as e:
+                    raise RetryCustomError("retry", "It seems there is an issue when merging vide❌")
+
                 # genearate video thumbnail
                 image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
                 print(image_url_thumbnail) 
@@ -468,14 +480,22 @@ class MergeView(APIView):
                 response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
                 position += 1
                 print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
-
+                return Response({
+                    'success' : 'Your video is successfuly created',
+                    "video_url": response_url
+                }, status=200)
             
-            return Response({
-                'success' : 'Your video is successfuly created',
-                "video_url": response_url
-            }, status=200)
 
-               
+        except RetryCustomError as e:
+            print("Custom DownloadError caught:",e)
+            responseval = {
+                    'type': e.retry,
+                    'scope' : 'MergeVideo',
+                    'retry': 'retry',
+                    'result': e.message,
+                    'NumberOfRequestRetry' : NumberOfRequestRetry
+            }
+            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)              
         except Exception as e:
             print(e)
             responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
@@ -491,10 +511,13 @@ class MergeAudioToVideoView(APIView):
         def event_stream():
             try:
                 data = request.data
+                NumberOfRequestRetry = int(sanitize_string(data['NumberOfRequestRetry']))
+
                 emailval = sanitize_string(data['email'])
                 dataval = json.loads(data['data'])
                 SocialMediaType = sanitize_string(data['SocialMediaType'])
                 folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
+                
                 accountref = Account.objects.filter(email = emailval)
                 custom_storage = FileSystemStorage(location=folder_path)
                 if not accountref.exists():
@@ -568,23 +591,27 @@ class MergeAudioToVideoView(APIView):
                     print('Generate video from images with transitions')
                     yield json.dumps({"progress": "Generating video from images"}) + "\n"
                     yield " " * 4096  + "\n"
-                    ffmpeg.output(
-                        output_stream,
-                        video_no_audio,
-                        vcodec='libx264',
-                        pix_fmt='yuv420p',
-                        r=25
-                    ).run(overwrite_output=True)
-                    
-                    print('Merge video with audio')
-                    yield json.dumps({"progress": "Merging video with audio"}) + "\n"
-                    yield " " * 4096  + "\n"
-                    (
-                        ffmpeg
-                        .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
-                        .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                        .run(overwrite_output=True)
-                    )
+                    try:
+                        ffmpeg.output(
+                            output_stream,
+                            video_no_audio,
+                            vcodec='libx264',
+                            pix_fmt='yuv420p',
+                            r=25
+                        ).run(overwrite_output=True)
+                        
+                        print('Merge video with audio')
+                        yield json.dumps({"progress": "Merging video with audio"}) + "\n"
+                        yield " " * 4096  + "\n"
+                        (
+                            ffmpeg
+                            .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
+                            .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
+                            .run(overwrite_output=True)
+                        )
+                    except Exception as e:
+                        raise RetryCustomError("retry", "Seams like there was an error merging your videos❌")
+
                     # genearate video thumbnail
                     image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
                     print(image_url_thumbnail) 
@@ -595,7 +622,10 @@ class MergeAudioToVideoView(APIView):
                         delete_file(thumbnail_path)
                         print('\nconfigs: ', image_url_thumbnail_val, thumbnail_path)
                         yield json.dumps({"progress": "Generating video thumbnail"}) + "\n"
-                        create_thumbnail(image_url_thumbnail_val, thumbnail_path)
+                        try:
+                            create_thumbnail(image_url_thumbnail_val, thumbnail_path)
+                        except Exception as e:
+                            yield json.dumps({"progress": "Failed creating video thumbnail❌"}) + "\n"
                     
                     response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
                     position += 1
@@ -608,6 +638,18 @@ class MergeAudioToVideoView(APIView):
                     "video_url": response_url
                 }
                 yield json.dumps(final_response) + "\n"
+            
+            except RetryCustomError as e:
+                print("Custom DownloadError caught:",e)
+                fallbackMessage = 'Maximum number of retries reached🥺. Try again later'
+                responseval = {
+                        'scope' : 'MergeAudioToVideo',
+                        'retry':  'failedMergeAudioToVideoRetry' if NumberOfRequestRetry >= MaximumNumberRetry else 'MergeAudioToVideoRetry',
+                        'result': fallbackMessage if NumberOfRequestRetry >= MaximumNumberRetry else e.message,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry + 1
+                }
+                yield json.dumps(responseval) + "\n"
+                return   
             except Exception as e:
                 print(e)
                 responseval = {'failed': 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
@@ -703,7 +745,7 @@ async def transcribe_and_split_audio_api(audio_list, num_splits):
 @method_decorator(csrf_exempt, name='dispatch')
 class UploadAudioToVideoAudiosView(APIView):
     permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
+    throttle_classes = [AiTokenThrottler]
 
     @circuit
     def post(self, request):        
@@ -711,6 +753,7 @@ class UploadAudioToVideoAudiosView(APIView):
             try:
                 data = request.data
                 emailval = sanitize_string(data['email'])
+                NumberOfRequestRetry = int(sanitize_string(data['NumberOfRequestRetry']))
                 SocialMediaType = sanitize_string(data['SocialMediaType'])
                 audio_files = request.data.getlist("audio")
                 NumberOfScripts = sanitize_string(data['NumberOfImages'])
@@ -751,10 +794,14 @@ class UploadAudioToVideoAudiosView(APIView):
                 
                 print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
                 yield json.dumps({"progress": "Transcribing your audio(s)"}) + "\n"
-                # Call your transcription function (synchronously via async_to_sync)
-                tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
+                try:
+                    # Call your transcription function (synchronously via async_to_sync)
+                    tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
                     custom_storage_audio_list, int(NumberOfScripts)
-                )
+                    )
+                except Exception as e:
+                    raise RetryCustomError("retry", f"Issue '{e}' when transcribing error❌")
+
                 print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n',tranascipt_data[0])
                 
                 if tranascipt_data is None or len(tranascipt_data[0])  == 0:
@@ -766,6 +813,17 @@ class UploadAudioToVideoAudiosView(APIView):
                     "data": [] if tranascipt_data is None else tranascipt_data
                 }
                 yield json.dumps(final_response) + "\n"
+
+            except RetryCustomError as e:
+                print("Custom DownloadError caught:",e)
+                responseval = {
+                        'scope' : 'UploadAudioToVideoAudios',
+                        'retry':  'failedRetry' if NumberOfRequestRetry >= 3 else 'retry',
+                        'result': e.message,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry + 1
+                }
+                yield json.dumps(responseval) + "\n"
+                return   
             except Exception as e:
                 print(e)
                 responseval = {'failed': 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
