@@ -92,7 +92,7 @@ class ProfileView(APIView):
             if Scope == 'ReadProfile' : 
                 emailval = sanitize_string(data['AccountEmail'])
                 IsOwner = sanitize_string(data['IsOwner'])
-                profile = list(Account.objects.filter(email= emailval).values('id','name','email','ProfilePic','ProfileAbout'))
+                profile = list(Account.objects.filter(email= emailval).values('id','name','email','ProfilePic','ProfileAbout','YoutubeChannels'))
                 
                 x = {'scope': 'ReadProfile',
                      'IsOwner' : IsOwner,

@@ -1,758 +1,997 @@
-from django.shortcuts import render,HttpResponse
-import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob,textwrap,shutil
-from django.core.files.storage import default_storage
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated,AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.throttling import UserRateThrottle
-from django.views.decorators.csrf import csrf_exempt,ensure_csrf_cookie, csrf_protect
-from django.utils.decorators import method_decorator
-#from AuthApp.excel_py.form1s import ReadWithFullRange
-from asgiref.sync import async_to_sync
-from circuitbreaker import circuit
-from django.conf import settings
+# chat/consumers.py
+import json,threading,datetime,aiohttp,requests, asyncio
+import redis,aiofiles
 from django.core.files.storage import FileSystemStorage
-from .models import Account
+import time,os,shutil,base64
+from django.conf import settings, Settings
+from markdown import markdown
+from asgiref.sync import sync_to_async,async_to_sync
+from channels.generic.websocket import WebsocketConsumer,AsyncWebsocketConsumer
+from django.core.exceptions import ValidationError
+from .models import Account,FolderTable,FileTable
+from channels.db import database_sync_to_async
+from django.core.files.storage import default_storage
+from django.db.models import Q
 from .models import sanitize_string
-from moviepy import AudioFileClip
-from django.middleware.csrf import get_token
-from django.http import JsonResponse
-from django.db.models import QuerySet
+from .serializers import FolderTableSerializer,FileTableSerializer
+from circuitbreaker import circuit
+import google.generativeai as genai
+from django.conf import settings
+from asyncio import Task, gather, CancelledError
+import pollinations as pollinationsAi
+from aiobreaker import CircuitBreaker
 from PIL import Image, ImageDraw, ImageFont
-from asgiref.sync import sync_to_async
-# YOUTUBE AND GOOGLE 
-from django.http import JsonResponse
-from google.oauth2.credentials import Credentials
+from django.shortcuts import redirect
+from django.conf import settings
+## Youtube imports
 from googleapiclient.discovery import build
-import os
+from googleapiclient.http import MediaFileUpload
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+
+from google_auth_oauthlib.flow import InstalledAppFlow
 from google_auth_oauthlib.flow import Flow
-##
-class Datathrottler(UserRateThrottle):
-    scope = 'DataThrottler'
-
-class fileUploadthrottler(UserRateThrottle):
-    scope = 'fileUpload'
-
-class csrfTokenThrottler(UserRateThrottle):
-    scope = 'csrf'
-
-class AiTokenThrottler(UserRateThrottle):
-    scope = 'ai'
-
-class VTV_AITokenThrottler(UserRateThrottle):
-    scope = 'VTV_AI'
-
-
-
-def get_csrf_token(request):
-    token = get_token(request)
-    return JsonResponse({'Success': 'CSRF cookie set', 'encryptedToken': token})
-
-@method_decorator(csrf_exempt,name='dispatch')
-class LogoutView(APIView):
-     permission_classes = (IsAuthenticated,)
-     throttle_classes = [csrfTokenThrottler]
-
-     def post(self, request):
-          
-          try:
-            refresh_token = request.data["refresh_token"]
-            #token = BlacklistableToken.objects.get(key=refresh_token)
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response(status=status.HTTP_205_RESET_CONTENT)
-          except Exception as e:
-            
-            return Response(status=status.HTTP_400_BAD_REQUEST)
-
-
-@method_decorator(csrf_exempt,name='dispatch')
-class ProfileView(APIView):
-     permission_classes = (AllowAny,)
-     throttle_classes = [csrfTokenThrottler]
-
-     def post(self, request):
-          
-          try:
-            #print('reading')           
-            data = request.data[0]
-            Scope = data['scope']
-           
-            if Scope == 'ReadProfile' : 
-                emailval = sanitize_string(data['AccountEmail'])
-                IsOwner = sanitize_string(data['IsOwner'])
-                profile = list(Account.objects.filter(email= emailval).values('id','name','email','ProfilePic','ProfileAbout'))
-                
-                x = {'scope': 'ReadProfile',
-                     'IsOwner' : IsOwner,
-                     }
-                profile.insert(0,x)
-
-                return Response(profile,status=200)
-            elif Scope == 'UsernameUpdate':
-               
-                emailval = request.data[1] 
-                nameval = sanitize_string(data['Username'])
-                x = Account.objects.filter(email = emailval)
-                x.update(name = nameval)
-                Account.save
-                responseval = {'success' : 'Saved'}
-                return Response(responseval,status=200)
-          except Exception as e:
-            print(e)
-            responseval = {'failed' : 'The data you requested cannot be found at the moment.'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-
-@method_decorator(csrf_exempt,name='dispatch')
-class UploadProfileDocs(APIView):
-    permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
-    @circuit
-    def post(self, request):        
-        try:
-            data = request.data
-            scope = data['scope']
-            if scope == 'ProfilePictureUpdate':
-                emailval = sanitize_string(data['email'])
-                file_name = sanitize_string(data['name'])
-                splited_file_name = str(file_name).split('.')
-                full_file_name = f'profile_picture.{splited_file_name[1]}'
-                storage_name = f'/{emailval}/profile_picture.{splited_file_name[1]}'
-                file_buffer = data['ProfilePicture']               
-                folder_name = str(emailval)
-                folder_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-                profile_picture_path = os.path.join(settings.MEDIA_ROOT, folder_name, 'profile_picture')
-
-                # Find all matching files (e.g., profile_picture.jpg, profile_picture.png, etc.)
-                matching_files = glob.glob(profile_picture_path + ".*")
-
-                if matching_files:
-                    for file in matching_files:
-                        try:
-                            os.remove(file)
-                            print(f"Deleted: {file}")
-                        except Exception as e:
-                            print(f"Error deleting {file}: {e}")
-                else:
-                    print("No matching profile picture found.")
-                #print('folder path: ',folder_path)
-                if os.path.exists(folder_path):
-                    #print('saving beggins .......')
-                    custom_storage = FileSystemStorage(location=folder_path)
-                    with custom_storage.open(full_file_name, 'wb') as f:
-                        file_data = file_buffer.read()
-                        f.write(file_data)
-                        
-                    #print('saving ends..........')
-                x = Account.objects.filter(email = emailval)
-                x.update(ProfilePic=storage_name)
-                Account.save
-                return Response( status=status.HTTP_200_OK)
-            if scope == 'GoogleAPICredentialFileUpload':
-                emailval = sanitize_string(data['email'])
-                file_name = sanitize_string(data['name'])
-                file_buffer = data['file']               
-                folder_name = str(emailval)
-                folder_path = os.path.join(settings.MEDIA_ROOT, folder_name)
-                profile_picture_path = os.path.join(settings.MEDIA_ROOT, folder_name, file_name)
-
-
-                if os.path.exists(profile_picture_path):
-                    try:
-                        os.remove(profile_picture_path)
-                        print(f"Deleted: {profile_picture_path}")
-                    except Exception as e:
-                        print(f"Error deleting {profile_picture_path}: {e}")
-                else:
-                    print("No matching profile picture found.")
-                #print('folder path: ',folder_path)
-                if os.path.exists(folder_path):
-                    #print('saving beggins .......')
-                    custom_storage = FileSystemStorage(location=folder_path)
-                    with custom_storage.open(file_name, 'wb') as f:
-                        file_data = file_buffer.read()
-                        f.write(file_data)
-                        
-                    #print('saving ends..........')
-                x = Account.objects.filter(email = emailval)
-                xval = list(x.values())
-                if xval[0]['ProfileAbout'] == None:
-                    AboutBody = {
-                        'GoogleAPICredentialFile' : file_name
-                    }
-                else:
-                    AboutBody = xval[0]['ProfileAbout']
-                    AboutBody['GoogleAPICredentialFile'] = file_name
-
-                x.update(ProfileAbout=AboutBody)
-                AboutBody['Scope'] = 'GoogleAPICredentialFile'
-                responseval = {'success':'file uploaded successfuly','Scope' : 'GoogleAPICredentialFileUpload','AboutBody' : AboutBody}
-                return Response(responseval,status=status.HTTP_200_OK)
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : e}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-
-
-@method_decorator(csrf_exempt,name='dispatch')
-class FileUploadView(APIView):
-    permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
-    @circuit
-    def post(self, request):        
-
-        data = request.data
-        file_name = sanitize_string(data['name'])
-        file_buffer = data['file']
-
-        if default_storage.exists(file_name):
-            pass
-            # Duplicate found, handle it (e.g., raise an error, rename the file)
-        else:
-            with default_storage.open(file_name, 'wb') as f:
-                file_data = file_buffer.read()
-                f.write(file_data)
-        return Response( status=status.HTTP_200_OK)
-
-
-
-redisConnection = settings.REDIS_CONNECTION
-def oauth_callback(request):
-    """Handle OAuth response, fetch access token, and store credentials."""
-    
-    # Extract OAuth state from request
-    state = request.GET.get('state')
-
-    # Search Redis for matching OAuth flow
-    matching_keys = redisConnection.keys("oauth_flow:*")
-    email = None
-    for key in matching_keys:
-        data = json.loads(redisConnection.get(key))
-        if data["flow_state"] == state:
-            email = data["email"]
-            redisConnection.delete(key)  # Remove stored state after use
-            break
-
-    if not email:
-        return JsonResponse({'error': 'Invalid OAuth state or expired request'}, status=400)
-
-    # Define folder paths
-    token_path = os.path.join(settings.MEDIA_ROOT, email, 'token.json')
-    credential_file_path = data['client_secrets_file']
-
-    # Create OAuth Flow again
-    flow = Flow.from_client_secrets_file(
-        credential_file_path,
-        scopes=['https://www.googleapis.com/auth/youtube.upload'],
-        redirect_uri=settings.GOOGLE_OAUTH_REDIRECT_URI
-    )
-
-    # Fetch access token
-    flow.fetch_token(authorization_response=request.build_absolute_uri())
-    credentials = flow.credentials
-
-    # Store token in a JSON file
-    with open(token_path, 'w') as token_file:
-        token_file.write(credentials.to_json())
-
-    return JsonResponse({'message': 'OAuth authentication successful!'})
-
-
-def delete_file(file_path: str):
-    """Asynchronously delete a file if it exists."""
-    if os.path.exists(file_path):
-        try:
-            os.remove(file_path)
-            print(f"File deleted: {file_path}")
-        except Exception as e:
-            print(f"Error deleting file {file_path}: {e}")
-    
-    return
-
-
-async def get_account(email: str) -> QuerySet:
-    """Fetch account reference asynchronously"""
-    return await sync_to_async(Account.objects.filter, thread_sensitive=True)(email=email)
-
-
-def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
-    """Create thumbnail from a locally downloaded image file"""
-    try:
-        print('generating thumbnail')
-        # Process in executor to avoid blocking
-        with Image.open(image_url) as img:
-            # Convert to RGB if needed
-            if img.mode in ('RGBA', 'P'):
-                img = img.convert('RGB')
-                
-            # Use modern resampling filter
-            img.thumbnail(
-                size,
-                resample=Image.Resampling.LANCZOS  # Replacement for ANTIALIAS
-            )
-            img.save(thumbnail_path, "JPEG", quality=85)
-        #_generate_thumbnail_from_file(image_url, thumbnail_path, size)
-        print('thumbnail generated')
+from thumbnails import Thumbnail,get_thumbnail
+from io import BytesIO
+from moviepy import VideoFileClip
+import google_auth_httplib2
+import google_auth_oauthlib
+import googleapiclient.discovery
+import googleapiclient.errors
+import googleapiclient.http
+# Create an async circuit breaker
+asyncCircuitBreaker = CircuitBreaker(fail_max=5, timeout_duration=60)
+YoutubeCustomPrompt = """    
+    strictly following YouTube's API schema for video uploads. Follow these rules:
+    1. Each object MUST include:
+    - A `snippet` object with:
+        * `title` (string, 1-100 characters)
+        * `description` (string, 0-5000 characters)
+        * `tags` (array of 0-500 strings, each ≤ 70 characters)
+        * `categoryId` (valid YouTube category ID string like "28")
+    - A `status` object with:
+        * `privacyStatus` (ONLY "public", "private", or "unlisted")
+        * `madeForKids` (boolean) true
+        * `selfDeclaredMadeForKids` true
+    - A `audio` object with:
+        * `script` write a 1 minute script in general of this object. The script should be a professional script and only words alone
+    - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
+        * `name` a custom image name with '.jpg' extension. A name should not repeated it should be unique
+        * `description` an image description for this object video description that can be used for this object video and should match it
         
-        return True
+
+    2. Structure EXACTLY like this:
+    ```json
+    {
+    "snippet": {
+        "title": "Text here",
+        "description": "Text here",
+        "tags": ["tag1", "tag2"],
+        "categoryId": "27"
+    },
+    "status": {
+        "privacyStatus": "private",
+        "madeForKids": false,
+        "selfDeclaredMadeForKids": True
+    },
+    "audio": {
+        "script": "Text here"
+    },
+    "ImageList": [
+            {
+                "name" : "Text here",
+                "description" : "Text here"
+            }
+        ]
+    }
+    
+    3. Provide the spesified number of examples distinctively with:
+        - Different YouTube categories
+        - Varied privacyStatus values
+        - Relevant tags matching the title/description
+        - Relevant images description matching their parent object description
+        `;
+"""
+
+YoutubeCustomPromptForAudioToVideo = """    
+    strictly following YouTube's API schema for video uploads. Follow these rules:
+    1. Each object MUST include:
+    - A `snippet` object with:
+        * `title` (string, 1-100 characters)
+        * `description` (string, 0-5000 characters)
+        * `tags` (array of 0-500 strings, each ≤ 70 characters)
+        * `categoryId` (valid YouTube category ID string like "28")
+    - A `status` object with:
+        * `privacyStatus` (ONLY "public", "private", or "unlisted")
+        * `madeForKids` (boolean) true
+        * `selfDeclaredMadeForKids` true
+    - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
+        * `name` a custom image name with '.jpg' extension. A name should not repeated it should be unique
+        * `description` an image description for this object video description that can be used for this object video and should match it
+        
+
+    2. Structure EXACTLY like this:
+    ```json
+    {
+    "snippet": {
+        "title": "Text here",
+        "description": "Text here",
+        "tags": ["tag1", "tag2"],
+        "categoryId": "27"
+    },
+    "status": {
+        "privacyStatus": "private",
+        "madeForKids": false,
+        "selfDeclaredMadeForKids": True
+    }
+    "ImageList": [
+            {
+                "name" : "Text here",
+                "description" : "Text here"
+            }
+        ]
+    }
+    
+    3. Provide the spesified number of examples distinctively with:
+        - Different YouTube categories
+        - Varied privacyStatus values
+        - Relevant tags matching the title/description
+        - Relevant images description matching their parent object description
+        `;
+"""
+
+
+class RetryCustomError(Exception):
+    def __init__(self, retry, message):
+        self.retry = retry
+        self.message = message
+        super().__init__(retry, message)
+
+
+@asyncCircuitBreaker
+async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
+    """Generate AI text content asynchronously."""
+    try:
+        try:
+            model = settings.AI_MODEL
+            response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
+        except Exception as e:
+            raise RetryCustomError("retry", "It seems there is an issue with your request. Try again later❌")
+        #print(response,type(response))
+        cleaned_json_string = response.text.strip("```json\n").strip("```")
+
+        # Parse into JSON format
+        json_data = json.loads(cleaned_json_string)
+        # response_json = json.loads(demodata)
+        #response.text
+        reponseval = {'type' : 'success','status' : 'success','result' : json_data}
+        return reponseval
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
-        print(f"Thumbnail error: {str(e)}")
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
+
+@asyncCircuitBreaker
+async def RequestRequestClearServer(email):
+    """Generate AI text content asynchronously."""
+    try:
+        folder_path = os.path.join(settings.MEDIA_ROOT, email, 'youtube')
+        folder_exists = await asyncio.to_thread(os.path.exists, folder_path)
+        if folder_exists:
+            await asyncio.to_thread(shutil.rmtree, folder_path)
+        
+        responseval = {'type': 'success', 'result': 'Files cleared successfully'}
+        return responseval
+    except Exception as e:
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': "It seems there is an issue while clearing your files. That shouldn't worry you"
+        }
+        return responseval
+
+# function to download the iamges
+@asyncCircuitBreaker
+async def download_image(image_url, filename, emailval, SocialMediaType):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(image_url) as response:
+            if response.status == 200:
+                
+                content = await response.read()
+                folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
+                file_path = os.path.join(folder_path, filename)
+                
+                # Check and remove existing file in a separate thread.
+                exists = await asyncio.to_thread(os.path.exists, file_path)
+                if exists:
+                    try:
+                        await asyncio.to_thread(os.remove, file_path)
+                        print(f"Existing File deleted: {file_path}")
+                    except Exception as e:
+                        print(f"Error deleting existing file {file_path}: {e}")
+                
+                # Save file using Django's FileSystemStorage offloaded to a thread.
+                def save_file():
+                    custom_storage = FileSystemStorage(location=folder_path)
+                    with custom_storage.open(filename, 'wb') as file:
+                        file.write(content)
+                await asyncio.to_thread(save_file)
+                
+                print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
+            else:
+                print(f"\n\nFailed to download {filename} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
+                raise RetryCustomError("retry", "An error occurred when downloading your images❌")
+                
+    return filename
+
+
+@asyncCircuitBreaker
+async def generate_image_async(description, title):
+    try:
+        # Create an asynchronous pollinations image model.
+        image_model = pollinationsAi.Async.Image(
+            model=pollinationsAi.Image.flux(),
+            seed="random",
+            width=1024,
+            height=1024,
+            enhance=False,
+            nologo=True,
+            private=True,
+            safe=False,
+            referrer="pollinations.py"
+        )
+        # Generate the image asynchronously.
+        image = await image_model(prompt=f'{description}')
+        # Offload the synchronous image.save() call to a thread.
+        await asyncio.to_thread(image.save, file=f'{title}.jpg')
+    except Exception as e:
+        raise RetryCustomError("retry", "Seams like there is an issue when generating your image❌")
+
+
+@asyncCircuitBreaker
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
+    """Generate AI images content asynchronously."""
+    try:
+        dataval = prompt
+        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
+        
+        # Ensure the folder is created asynchronously.
+        folder_exists = await asyncio.to_thread(os.path.exists, social_media_folder_path)
+        if not folder_exists:
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
+        else:
+            await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
+            
+        loopval = 0
+        for items in dataval:
+            objectval = items.get("ImageList", [])
+            i = 0
+            for objectval_items in objectval:
+                print(f'\n\n{i} - {objectval_items}\n\n')           
+                title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
+                # Image details
+                ImageDescription = objectval_items.get("description", "A beautiful natural scene")
+                width = 1024
+                height = 1024
+                seed = 42  # Each seed generates a new image variation
+                model = 'flux'  # Using 'flux' as default if model is not provided
+
+                # Construct API image URL.
+                API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
+                
+
+                # Generate image asynchronously.
+                await generate_image_async(ImageDescription, title)
+                # Download the generated image.
+                await download_image(API_image_url, title, email, SocialMediaType)
+                
+                storage_name = f'{email}/{SocialMediaType}/{title}'
+                print(f'\n\nAt object {loopval} generated {title}')
+                i += 1
+                print(f'\nRemaining images {i}/{len(objectval)} images')
+            loopval += 1
+            print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
+       
+        responseval = {
+            'type': 'success',
+            'status': 'success',
+            'result': 'All images processed',
+            'data': dataval
+        }
+        return responseval
+    
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
+    except Exception as e:
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
+
+@asyncCircuitBreaker
+async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
+    """Generate AI images content asynchronously for transcripts."""
+    try:
+        dataval = prompt
+        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
+        
+        # No need to create or delete folder if not required, or replicate as in RequestCreateImagesFunc.
+        loopval = 0
+        for items in dataval:
+            objectval = items.get("ImageList", [])
+            i = 0
+            for objectval_items in objectval:
+                print(f'\n\n{i} - {objectval_items}\n\n')           
+                title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
+                ImageDescription = objectval_items.get("description", "A beautiful natural scene")
+                width = 1024
+                height = 1024
+                seed = 42
+                model = 'flux'
+                API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
+                
+                await generate_image_async(ImageDescription, title)
+                await download_image(API_image_url, title, email, SocialMediaType)
+                storage_name = f'{email}/{SocialMediaType}/{title}'
+                print(f'\n\nAt object {loopval} generated {title}')
+                i += 1
+                print(f'\nRemaining images {i}/{len(objectval)} images')
+            loopval += 1
+            print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
+       
+        responseval = {
+            'type': 'success',
+            'status': 'success',
+            'result': 'All images processed',
+            'data': dataval
+        }
+        return responseval
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
+    except Exception as e:
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': 'It seems there is an issue with your request. Try again later'
+        }
+        return responseval
+
+# Redis connection
+redisConnection = settings.REDIS_CONNECTION 
+# redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
+SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+async def get_authenticated_service(email, credential_file_path, token_path):
+    """Authenticate and return YouTube service with persistent authentication in a non-blocking way."""
+    try:
+        credentials = None
+
+        # Check if token exists asynchronously.
+        token_exists = await asyncio.to_thread(os.path.exists, token_path)
+        if token_exists:
+            print("🔑 Loading existing token...")
+            async with aiofiles.open(token_path, 'r') as token_file:
+                token_content = await token_file.read()
+                credentials_data = json.loads(token_content)
+                # Wrap the synchronous call in a thread.
+                credentials = await asyncio.to_thread(Credentials.from_authorized_user_info, credentials_data, SCOPES)
+
+        # If credentials are missing or invalid, refresh or perform new OAuth flow.
+        if not credentials or not credentials.valid:
+            if credentials and credentials.expired and credentials.refresh_token:
+                try:
+                    print("🔄 Refreshing token...")
+                    # Refresh credentials in a thread.
+                    await asyncio.to_thread(credentials.refresh, Request())
+                except Exception as e:
+                    print(f"⚠ Token refresh failed: {e}")
+                    credentials = None
+
+            if not credentials:
+                print("🔐 New authentication required...")
+
+                # Define a helper to run the OAuth flow synchronously.
+                def run_oauth_flow():
+                    flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+                        credential_file_path, SCOPES
+                    )
+                    # Example: generate a unique key for Redis (if needed)
+                    auth_key = f"oauth_flow:{email}"
+                    print('Store authentication state in Redis')
+                    auth_url, state = flow.authorization_url(
+                        access_type="offline",  # Ensures refresh token is issued.
+                        prompt='consent'
+                    )
+                    # Assuming redisConnection is available and thread-safe.
+                    redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)
+                    print('Authenticate user via local server (blocking call)')
+                    creds = flow.run_local_server(
+                        port=8080,
+                        open_browser=True,
+                        redirect_uri_trailing_slash=False
+                    )
+                    return creds
+
+                # Run the blocking OAuth flow in a separate thread.
+                credentials = await asyncio.to_thread(run_oauth_flow)
+
+            # Save new token using asynchronous file I/O.
+            print("💾 Saving new token for future use")
+            async with aiofiles.open(token_path, 'w') as token_file:
+                await token_file.write(credentials.to_json())
+
+        # Build the YouTube service in a thread (since discovery.build is blocking).
+        def build_youtube_service():
+            return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+        youtube = await asyncio.to_thread(build_youtube_service)
+        print("✅ Authentication successful!")
+        return youtube
+    except Exception as e:
+        raise RetryCustomError("retry", "There seams to be a proble when authenticating you❌")
+
+
+async def is_video_a_short(video_path):
+    """Check asynchronously if the video is a YouTube Short"""
+    try:
+        # Run the blocking operation in a separate thread
+        clip = await asyncio.to_thread(VideoFileClip, video_path)
+        duration = clip.duration  # Duration in seconds
+        is_short = (duration <= 60) 
+        return is_short
+    except Exception as e:
+        print(f"Error checking video: {str(e)}")
         return False
 
 
-@method_decorator(csrf_exempt,name='dispatch')
-class MergeView(APIView):
-    permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
-    @circuit
-    def post(self, request):        
-        try:
-            data = request.data
-            emailval = sanitize_string(data['email'])
-            dataval = json.loads(data['data'])
-            AudioScope = data['AudioScope']
-            SocialMediaType = sanitize_string(data['SocialMediaType'])
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            accountref = Account.objects.filter(email = emailval)
-            custom_storage = FileSystemStorage(location=folder_path)
-            if not accountref.exists():
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
-            
-            if AudioScope == 'OneForAll':
-                audio_file = data['audio']
-                audio_name = data['audioName']
-
-                if not audio_file or not dataval or not SocialMediaType or SocialMediaType == '':
-                    return Response({'error': 'Missing required files'}, status=400)
-
-                # Save the audio file
-                
-                custom_storage = FileSystemStorage(location=folder_path)
-                custom_storage_audio_path = os.path.join(folder_path,audio_name)
-
-                delete_file(custom_storage_audio_path)
-                if not custom_storage.exists(audio_name):
-                    audio_path = custom_storage.save(audio_name, audio_file)
-                
-                # Extract audio duration
-                audio_clip = AudioFileClip(custom_storage_audio_path)
-                audio_duration = audio_clip.duration  # Get duration in seconds
-                audio_clip.close()
-            elif AudioScope == 'AllForAll':
-                audio_files = request.data.getlist("audio")
-                if not audio_files or not SocialMediaType or SocialMediaType == '':
-                    return Response({'error': 'Missing required files'}, status=400)
-
-                # Save the audio file
-                
-                
-                custom_storage_audio_list = []
-                audio_duration_list = []
-                i = 0
-                for audio in audio_files:
-                    filename = os.path.join(folder_path, audio.name)
-                    delete_file(filename)
-                    with open(filename, "wb") as destination:
-                        for chunk in audio.chunks():
-                            destination.write(chunk)
-                    custom_storage_audio_list.append(filename)                
-                
-                    # Extract audio duration
-                    audio_clip = AudioFileClip(filename)
-                    audio_duration = audio_clip.duration  # Get duration in seconds
-                    audio_duration_list.append(audio_duration)
-                    audio_clip.close()
-                    print(f'saved audio {i}/{len(audio_files)} audios')
-                    i += 1
-            
-            
-
-            position = 0
-            response_url = []
-            
-            for items in dataval:
-                print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
-                # Extract image paths
-                image_image_list = items.get("ImageList", "")
-                print(image_image_list)
-                
-                image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,'youtube', item.get("name", "").strip())) for item in image_image_list if "name" in item]
-                # for path in image_paths:
-                #         print(path)  # This will show single backslashes
-
-                num_images = len(image_paths)
-                if num_images == 0:
-                    responseval = {'failed' : 'There were no images identified'}
-                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-                
-                
-                # Calculate duration per image
-                duration_per_image = audio_duration / num_images
-                T = audio_duration / num_images
-                transition_duration = 1.0  # duration of each transition in seconds
-                # List to hold each image clip stream
-                streams = []
-                
-                # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
-                for i, img in enumerate(image_paths):
-                    print(f'\n\n Image path {img}')
-                    # For all images we use the same duration (the xfade filter will manage overlapping transitions)
-                    # You may adjust duration per image if you want the last image to have no transition.
-                    stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
-                    streams.append(stream)
-                
-                # Chain the streams using xfade to add smooth transitions.
-                # The offset for the first transition will be (T - transition_duration),
-                # and for each subsequent transition, we add (T - transition_duration).
-                output_stream = streams[0]
-                for i in range(1, len(streams)):
-                    offset = i * (T - transition_duration)
-                    output_stream = ffmpeg.filter(
-                        [output_stream, streams[i]],
-                        'xfade',
-                        transition='fade',           # change to any supported effect, e.g. 'wipeleft'
-                        duration=transition_duration,
-                        offset=offset
-                    )
-                print('\n\n Image streams generated') 
-            
-                # Define output video paths
-                if AudioScope == 'AllForAll':
-                    
-                    custom_videos_name = f'all_for_all_audio_{position}'
-                elif AudioScope == 'OneForAll':
-                    custom_videos_name = f'one_for_all_audio_{position}'
-                video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
-                final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
-                delete_file(video_no_audio)
-                delete_file(final_video)
-                # print(video_no_audio,final_video)
-                # Generate video from images
-                print('Generate video from images with transitions')
-                
-                ffmpeg.output(
-                    output_stream,
-                    video_no_audio,
-                    vcodec='libx264',
-                    pix_fmt='yuv420p',
-                    r=25
-                ).run(overwrite_output=True)
-                
-
-                # Merge video with audio
-                print('Merge video with audio')
-                audio_path_val = custom_storage_audio_path if AudioScope == 'OneForAll' else custom_storage_audio_list[position]
-                (
-                    ffmpeg
-                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(audio_path_val), v=1, a=1)
-                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                    .run(overwrite_output=True)
-                )
-                # genearate video thumbnail
-                image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
-                print(image_url_thumbnail) 
-                if image_url_thumbnail != False:
-                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
-                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
-                    #delete an existing thumbnail
-                    delete_file(thumbnail_path)
-                    print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
-                    create_thumbnail(image_url_thumbnail_val, thumbnail_path)
-                
-                response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
-                position += 1
-                print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
-
-            
-            return Response({
-                'success' : 'Your video is successfuly created',
-                "video_url": response_url
-            }, status=200)
-
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-
-@method_decorator(csrf_exempt,name='dispatch')
-class MergeAudioToVideoView(APIView):
-    permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
-    @circuit
-    def post(self, request):        
-        try:
-            data = request.data
-            emailval = sanitize_string(data['email'])
-            dataval = json.loads(data['data'])
-            SocialMediaType = sanitize_string(data['SocialMediaType'])
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            accountref = Account.objects.filter(email = emailval)
-            custom_storage = FileSystemStorage(location=folder_path)
-            if not accountref.exists():
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
-            
-            position = 0
-            response_url = []
-            
-            for items in dataval:
-                print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}')
-                # Extract image paths
-                image_image_list = items.get("ImageList", "")
-                audio_name = items.get("audio", "fallback.mp3")
-                print(image_image_list)
-                
-                image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,SocialMediaType, item.get("name", "").strip())) for item in image_image_list if "name" in item]
-                # for path in image_paths:
-                #         print(path)  # This will show single backslashes
-
-                num_images = len(image_paths)
-                if num_images == 0:
-                    responseval = {'failed' : 'There were no images identified'}
-                    return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-                
-                
-                # Calculate duration per image
-                # Extract audio duration
-                custom_storage_audio_path = os.path.join(folder_path,audio_name)
-                audio_clip = AudioFileClip(custom_storage_audio_path)
-                audio_duration = audio_clip.duration  # Get duration in seconds
-                audio_clip.close()
-
-                duration_per_image = audio_duration / num_images
-                T = audio_duration / num_images
-                transition_duration = 1.0  # duration of each transition in seconds
-                # List to hold each image clip stream
-                streams = []
-                
-                # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
-                for i, img in enumerate(image_paths):
-                    print(f'\n\n Image path {img}')
-                    # For all images we use the same duration (the xfade filter will manage overlapping transitions)
-                    # You may adjust duration per image if you want the last image to have no transition.
-                    stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
-                    streams.append(stream)
-                
-                # Chain the streams using xfade to add smooth transitions.
-                # The offset for the first transition will be (T - transition_duration),
-                # and for each subsequent transition, we add (T - transition_duration).
-                output_stream = streams[0]
-                for i in range(1, len(streams)):
-                    offset = i * (T - transition_duration)
-                    output_stream = ffmpeg.filter(
-                        [output_stream, streams[i]],
-                        'xfade',
-                        transition='fade',           # change to any supported effect, e.g. 'wipeleft'
-                        duration=transition_duration,
-                        offset=offset
-                    )
-                print('\n\n Image streams generated') 
-            
-                # Define output video paths
-                
-                custom_videos_name = f'merge_audio_to_video_{position}'
-                video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
-                final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
-                delete_file(video_no_audio)
-                delete_file(final_video)
-                # print(video_no_audio,final_video)
-                # Generate video from images
-                print('Generate video from images with transitions')
-                
-                ffmpeg.output(
-                    output_stream,
-                    video_no_audio,
-                    vcodec='libx264',
-                    pix_fmt='yuv420p',
-                    r=25
-                ).run(overwrite_output=True)
-                
-
-                # Merge video with audio
-                print('Merge video with audio')
-                (
-                    ffmpeg
-                    .concat(ffmpeg.input(video_no_audio), ffmpeg.input(custom_storage_audio_path), v=1, a=1)
-                    .output(final_video, vcodec='libx264', acodec='aac', strict='experimental')
-                    .run(overwrite_output=True)
-                )
-                # genearate video thumbnail
-                image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
-                print(image_url_thumbnail) 
-                if image_url_thumbnail != False:
-                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
-                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
-                    #delete an existing thumbnail
-                    delete_file(thumbnail_path)
-                    print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
-                    create_thumbnail(image_url_thumbnail_val, thumbnail_path)
-                
-                response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
-                position += 1
-                print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
-
-            
-            return Response({
-                'success' : 'Your video is successfuly created',
-                "video_url": response_url
-            }, status=200)
-
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
-
-
-# Replace with your public API URL from the Google Colab ngrok FastAPI transcription service
-# PUBLIC_API_URL = "https://your-ngrok-url.ngrok.io"  # <-- update this!
-PUBLIC_API_URL = os.environ.get('Transcribe_URL')
-print(PUBLIC_API_URL)
-
-def transcribe_with_whisper(audio_file_input):
-    # If the input is a dictionary, extract the "audio_path" value.
-    if isinstance(audio_file_input, dict):
-        audio_file_path = audio_file_input.get("audio_path")
-    else:
-        audio_file_path = audio_file_input
-
-    # Construct the full URL for the /transcribe/ endpoint
-    url = f"{PUBLIC_API_URL}/transcribe/"
-    print(f"url {url}")
-    
-    # Open and read the audio file
-    with open(audio_file_path, "rb") as f:
-        audio_data = f.read()
-    
-    # Prepare the file payload (assuming the API expects a field named "file")
-    files = {
-        "file": (os.path.basename(audio_file_path), audio_data, "audio/wav")
-    }
-    
-    # Send the POST request to your FastAPI endpoint
-    response = requests.post(url, files=files)
-    if response.status_code == 200:
-        result = response.json()
-        transcript = result.get("transcript", "")
-        print(transcript)
-        return str(transcript)
-    else:
-        print("Error:", response.status_code, response.text)
-        return ''
-
-
-async def transcribe_and_split_audio_api(audio_list, num_splits):
-    transcriptions = []
-    full_transciptions = []
-    position = 1
+@asyncCircuitBreaker
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,NumberOfRequestRetry):
+    """Upload video to YouTube with metadata"""
     try:
-        for items in audio_list:
-  
         
-            print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀 {position}/{len(audio_list)}')
-            audio_name = items.get('audio_name','fallback.mp3')
-            audio_path = items.get('audio_path','fallback.mp3')
-            print(audio_name,audio_path)
-            # Call the transcription API endpoint hosted on Google Colab
-            transcript = await asyncio.to_thread(transcribe_with_whisper, audio_path)
-            if not transcript:
-                continue
+        dataval = prompt
+        
+        folder_path = os.path.join(settings.MEDIA_ROOT,email)
+        # Get authenticated service
+        full_credential_file_path = os.path.join(settings.MEDIA_ROOT,'mela@mela','client_secret.json')
+        full_token_path = os.path.join(folder_path, 'token.json')
+        
+        # Try using stored credentials
+        ### MADE THE FUNCTION ASYNC 
+        service = await get_authenticated_service(email = email,credential_file_path = full_credential_file_path,token_path=full_token_path)
+        ### LOOPING SHOULD BEGGIN HERE
+        #print(json.dumps(bodyval,indent=4))
+        #### LOOP STARTS HERE
+        print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀')
+        position = 0
+        video_id_list = []
+        for items in dataval:
+            full_video_path = os.path.join(settings.MEDIA_ROOT, VideoUrl[position])
 
-            # Split transcript into parts
-            print('spliting',type(transcript))
-            full_transciptions.append(transcript)
-            words = textwrap.wrap(transcript, width=len(transcript)//num_splits)
+            if not os.path.exists(full_video_path):
+                raise FileNotFoundError(f"Video file missing: {full_video_path}")
+            media = MediaFileUpload(full_video_path, 
+                                chunksize=-1,
+                                resumable=True,)
             
-            #print('sliplitted',words)
-            # Save the split transcript data
-            tranascipt_list = []
-            splited_audio_name = str(audio_name).split('.mp3')
-            spited_position = 0
-            for words_parts in words:
-                print('\n\n splited file name: ',splited_audio_name[0])
-                tranascipt_list.append({
-                    "name": f'{spited_position}_{splited_audio_name[0]}.jpg',
-                    "description": words_parts
-                })
-                spited_position += 1
-                
-            transcriptions.append(tranascipt_list)
-            print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+            insert_request = service.videos().insert(
+                part="snippet,status",
+                body={
+                    "snippet": items.get("snippet", {}),
+                    "status": items.get("status", {})
+                },
+                media_body=media
+            )
+            
+            # Execute async upload
+            response = await asyncio.to_thread(insert_request.execute)
+            def execute_request():
+                print('uploading starts: ')
+                response = None
+                while response is None:
+                    status, response = insert_request.next_chunk()
+                    if status:
+                        print(f"Upload {int(status.progress() * 100)}%")
+                return response
+            
+            response = await asyncio.to_thread(execute_request)
 
+            print(f"Video uploaded with ID: {response['id']}")
+            video_id = response['id']
+            video_id_list.append(video_id)
+            
+            # Before thumbnail upload
+             # Check if the video is a YouTube Short asynchronously.
+            is_short = await is_video_a_short(full_video_path)
+            if not is_short:
+                # Build the thumbnail path.
+                thumbnail_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType, f'{position}_thumbnail.jpeg')
+                
+                # Check if the thumbnail exists in a non-blocking manner.
+                thumbnail_exists = await asyncio.to_thread(os.path.exists, thumbnail_path)
+                if not thumbnail_exists:
+                    print('Thumbnail not found')
+                else:
+                    try:
+                        # Prepare the MediaFileUpload (this call is synchronous).
+                        media_thumbnail = MediaFileUpload(thumbnail_path)
+                        # Offload the blocking thumbnail upload to a separate thread.
+                        await asyncio.to_thread(
+                            service.thumbnails().set(
+                                videoId=video_id,
+                                media_body=media_thumbnail
+                            ).execute
+                        )
+                    except Exception as e:
+                        print('Error when uploading thumbnail ❌:', e)
+                    print('\n\nThumbnail uploaded')
+                    
             position += 1
-    
-        return [transcriptions,full_transciptions]
+
+        print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+        return {
+            'type': 'success',
+            'status': 'success',
+            'result': f'Video uploaded to {SocialMediaType} successfully',
+            'video_id': video_id_list
+        }
+        
+    except RetryCustomError as e:
+        print("Custom DownloadError caught:")
+        print("Retry flag:", e.retry)
+        print("Message:", e.message)
+        responseval = {
+                'type': e.retry,
+                'status': 'error',
+                'result': e.message,
+                'NumberOfRequestRetry' : NumberOfRequestRetry
+        }
+        return responseval
     except Exception as e:
-            print(f"Error processing {items}: {e}")
+        print(f"Upload error: {str(e)} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': f'Video upload failed. Please try again. {str(e)}'
+        }
+        return responseval
 
 
 
-@method_decorator(csrf_exempt,name='dispatch')
-class UploadAudioToVideoAudiosView(APIView):
-    permission_classes = (IsAuthenticated,)
-    throttle_classes = [fileUploadthrottler]
-    @circuit
-    def post(self, request):        
-        try:
-            data = request.data
-            emailval = sanitize_string(data['email'])
-            SocialMediaType = sanitize_string(data['SocialMediaType'])
-            audio_files = request.data.getlist("audio")
-            NumberOfScripts = sanitize_string(data['NumberOfImages'])
-            folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
-            if not os.path.exists(folder_path):
-                os.mkdir(folder_path)
+@circuit
+@database_sync_to_async
+def EditProfileFunc(about,email,name,ProfilePic = None):
+    try:
+        x = Account.objects.all().filter(email = email)
+        #picval = f'http://127.0.0.1:8000/media/{ProfilePic}'
+
+        x.update(name = name,about=about)
+        # if ProfilePic != 'null':
+        #     x.update(name = name,about=about)
+        # else:
+        #     x.update(name = name,about=about)
+        Account.save
+
+        responseval =  {'status' : 'success','message' : 'Profile Updated'}
+
+        return responseval
+    except Exception as e:
+        responseval =  {'status' : 'error','message' : 'invalid account'}
+        return responseval   
+
+
+@circuit
+@sync_to_async
+def RequestFolderDataFunc(email):
+    try:
+        if email :
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountref = Account.objects.get(email = emailval) 
+            foldetData = accountref.folders.all().order_by('id')
+            foldet_val = FolderTableSerializer(foldetData,many=True)
+            responseval = {'type' : 'success','result' : 'successful','list' : foldet_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
+
+@circuit
+@sync_to_async
+def RequestAddFolderFunc(email,foldername):
+    try:
+        if email and foldername:
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            now = datetime.datetime.now()
+            short_date = now.strftime("%d-%m-%Y")
+            accountref = Account.objects.get(email = emailval)    
+            FolderTable.objects.create(
+                title = foldername,
+                dateCreated = str(short_date),
+                account_email = accountref
+            )
+            foldetData = accountref.folders.all().order_by('id')
+            foldet_val = FolderTableSerializer(foldetData,many=True)
+            responseval = {'type' : 'success','result' : 'Folder added','list' : foldet_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
+
+@circuit
+@sync_to_async
+def RequestFolderFilesFunc(email,folderId):
+    try:
+        if email != None and folderId != None:
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountref = Account.objects.get(email = emailval) 
+            foldetData = FolderTable.objects.get(account_email = accountref,id = folderId)
+            fileData = foldetData.files.all().order_by('id')
+            file_val = FileTableSerializer(fileData,many=True)
+            responseval = {'type' : 'success','result' : 'successful','list' : file_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
+
+@circuit
+@sync_to_async
+def RequestEditfolderNameFunc(data):
+    try:
+        emailval = sanitize_string(data['AccountEmail'])
+        folderId = sanitize_string(data['folderId'])
+        foldername = sanitize_string(data['name'])
+        if emailval != None and folderId != None and foldername != '':            
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountref = Account.objects.get(email = emailval) 
+            xval =  FolderTable.objects.filter(account_email = accountref,id = folderId)
+            xval.update(title = foldername)
+            foldetData = accountref.folders.all().order_by('id')
+            folder_val = FolderTableSerializer(foldetData,many=True)
+            responseval = {'type' : 'success','result' : 'Folder successfully edited','list' : folder_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
+
+@circuit
+@sync_to_async
+def RequestDeleteFolderFunc(email,folderId):
+    try:
+        if email != None and folderId != None:
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountref = Account.objects.get(email = emailval)
+            folderref = FolderTable.objects.get(id = folderId,account_email = email) 
+            filesData = FileTable.objects.filter(folder_id = folderref,account_email = accountref)
+            filesVal = FileTableSerializer(filesData,many=True)
+            filesSerialized = filesVal.data
+            folder_path = os.path.join(settings.MEDIA_ROOT, emailval)
+            x = 0
+            if os.path.exists(folder_path):
+                for x in filesSerialized:
+                    fileurl = x['name']
+                    idval = x['id']
+                    FileTable.objects.filter(id = idval,account_email= accountref,folder_id = folderref).delete()
+                  
+                    Post_file_path = os.path.join(settings.MEDIA_ROOT,emailval,'repository',fileurl)
+                    os.remove(Post_file_path)
             else:
-                shutil.rmtree(folder_path)
-                os.mkdir(folder_path)
-            accountref = Account.objects.filter(email = emailval)
-
-            if not accountref.exists() or emailval == 'gestuser@gmail.com':
-                responseval = {'failed' : 'This account does not exist.Login to proceed.'}
-                return Response(responseval,status=status.HTTP_400_BAD_REQUEST) 
-
-            if not audio_files or not SocialMediaType or SocialMediaType == '':
-                return Response({'error': 'Missing required files'}, status=400)
-
-            # Save the audio file
+                responseval = {'type' : 'error','result' : 'invalid data'}
+                return responseval
+            #deleting folder
+            folderref.delete()
             
-            custom_storage_audio_list = []
-            i = 0
-            for audio in audio_files:
-                filename = os.path.join(folder_path, audio.name)
-                delete_file(filename)
-                with open(filename, "wb") as destination:
-                    for chunk in audio.chunks():
-                        destination.write(chunk)
-                    dataval = {
-                        "audio_name" : audio.name,
-                        "audio_path" : filename
-                    }
-                custom_storage_audio_list.append(dataval)                
-            
-                
-                print(f'saved audio {i}/{len(audio_files)} audios')
-                i += 1
-            
-            print('\n\n BEGINNING TRANSCRIPTION 🚩🚩🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
-            # tranascipt_data = transcribe_and_split_audio_api(custom_storage_audio_list,int(NumberOfScripts))
-            tranascipt_data = async_to_sync(transcribe_and_split_audio_api)(
-                custom_storage_audio_list, int(NumberOfScripts)
-            )            
-            print('\n\n TRANSCIPTION FINISHED 🚩🚩🚩🚩🚩🚩🚩🚩\n\n')
-            return Response({
-                'success' : 'Your transcript is successfuly created',
-                "data":  [] if tranascipt_data == None else tranascipt_data
-            }, status=200)
+            #returning folders data list
+            foldetData =  accountref.folders.all().order_by('id')         
+            folder_val = FolderTableSerializer(foldetData,many=True)  
+            responseval = {'type' : 'success','result' : 'Folder Deleted','list' : folder_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
 
-               
-        except Exception as e:
-            print(e)
-            responseval = {'failed' : 'Error occured when processing your request ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌'}
-            return Response(responseval,status=status.HTTP_400_BAD_REQUEST)
+
+@circuit
+@sync_to_async
+def RequestDeleteRepositoryFileFunc(data):
+    email = sanitize_string(data['AccountEmail'])
+    FileId = sanitize_string(data['fileId'])
+    filename = sanitize_string(data['filename'])
+    folderId = sanitize_string(data['FolderId'])
+    try:
+        if email != None and FileId != None and folderId != None:
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountref = Account.objects.get(email = emailval) 
+            #deleting file
+            folder_path = os.path.join(settings.MEDIA_ROOT, email)
+            if os.path.exists(folder_path):
+                Post_file_path = os.path.join(settings.MEDIA_ROOT,email,'repository',filename)
+                os.remove(Post_file_path)
+            #file deleted
+            FileTable.objects.filter(account_email=accountref,id= FileId).delete()
+            foldetData = FolderTable.objects.get(account_email = accountref,id = folderId)
+            fileData = foldetData.files.all().order_by('id')
+            file_val = FileTableSerializer(fileData,many=True)
+            responseval = {'type' : 'success','result' : 'Deleted successful','list' : file_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'invalid data'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        return reponseval
+
+class AIConsumer(AsyncWebsocketConsumer):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tasks = set()  # Keep track of running tasks
+
+
+    async def connect(self):    
+        self.emailConnected = self.scope['url_route']['kwargs']['email']
+        await self.accept() 
+        
+
+    async def disconnect(self, close_code):  
+        # Cancel all running tasks
+        for task in self.tasks:
+            task.cancel()
+        try:
+            await gather(*self.tasks, return_exceptions=True)  # Wait for task cancellations
+        except CancelledError:
+            pass  # Ignore cancellation errors
+        finally:
+            self.tasks.clear()
+    async def send_msg(self, data,type,online = None):
+        
+        await self.send(
+            text_data=json.dumps(
+                {
+                    'type' : type,
+                    "message": data,
+                }
+            )
+        )   
+
+    async def receive(self, text_data=None,bytes_data=None):
+        date = datetime.datetime.now()
+        text_data_json = json.loads(text_data)
+        message = text_data_json['message']
+        if(message == 'RequestAIResponse'):
+                email = sanitize_string(text_data_json['email'])
+                promptConstructed = text_data_json['prompt']
+                numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                SocialMediaPromptSelected = YoutubeCustomPrompt
+                image_list_script = f'each objects ImageList should have {numberOfImagesPerObject} objects'
+                prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected} {image_list_script}'    
+                # Track the task
+                task = asyncio.create_task(self.handle_request_ai_response(prompt, email,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestAITranscriptResponse'):
+                email = sanitize_string(text_data_json['email'])
+                promptConstructed = text_data_json['prompt']
+                numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
+                # Track the task
+                task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestCreateImages'):
+                email = sanitize_string(text_data_json['email'])
+                prompt = json.loads(text_data_json['prompt'])
+                SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                # Track the task
+                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestCreateImagesTranscript'):
+                email = sanitize_string(text_data_json['email'])
+                prompt = json.loads(text_data_json['prompt'])
+                SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+
+                # Track the task
+                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestUploadVideos'):
+                email = sanitize_string(text_data_json['email'])
+                prompt = text_data_json['prompt']
+                VideoUrl = text_data_json['VideoUrl']
+                SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                # Track the task
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestClearServer'):
+                email = sanitize_string(text_data_json['email'])
+                # Track the task
+                task = asyncio.create_task(self.handle_request_clear_server(email))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+
+    async def handle_request_ai_response(self, prompt, email,NumberOfRequestRetry):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestAIResponse')
+    async def handle_request_ai_transcript_response(self, prompt, email,NumberOfRequestRetry):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestAITranscriptResponse')
+    async def handle_request_clear_server(self, email):
+        val = await RequestRequestClearServer(email=email)
+        await self.send_msg(data=val, type='RequestClearServer')
+    async def handle_request_create_images(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
+        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestCreateImages')
+    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
+        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestCreateImagesTranscript')
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestUploadVideos')
+    
+
+
+   
+class ChatList(AsyncWebsocketConsumer):
+
+
+    async def connect(self):    
+        self.emailConnected = self.scope['url_route']['kwargs']['email']
+        await self.accept() 
+        
+
+    async def disconnect(self, close_code):  
+        pass
+
+
+    async def send_msg(self, data,type,online = None):
+        
+        await self.send(
+            text_data=json.dumps(
+                {
+                    'type' : type,
+                    "message": data
+                }
+            )
+        )   
+
+    #recieve message from websocket
+    async def receive(self, text_data=None,bytes_data=None):
+        file_name = ''
+        #return
+        if isinstance(bytes_data,bytes):         
+            
+            file_buffer =bytes_data
+            #file_name = 'loginPreview.png'  # Replace with a unique file name
+            if default_storage.exists(file_name):
+                pass
+                # Duplicate found, handle it (e.g., raise an error, rename the file)
+            else:
+                with default_storage.open(file_name, 'wb') as f:
+                    f.write(file_buffer)
+            # Handle the uploaded file as needed
+            
+            await self.send_msg(data='Success',type='Upload')
+        else:
+            text_data_json = json.loads(text_data)
+            message = text_data_json['message']
+            if(message == 'EditProfile'):
+                email = sanitize_string(text_data_json['email'])
+                if email != 'null' and email != 'gestuser@gmail.com' and email != '' :
+                    name = sanitize_string(text_data_json['name'])
+                    #ProfilePic = sanitize_string(text_data_json['ProfilePic'])
+                    about = sanitize_string(text_data_json['about'])     
+                    val = await EditProfileFunc(about=about,name=name,email=email)           
+       
+                    await self.send_msg(data=val,type='EditProfile')
+                else:
+                    val = {'status' : 'error','message' : 'invalid account'}
+                    await self.send_msg(data=val,type='EditProfile')
+            elif (message == 'RequestFolderData'):
+                emailval = sanitize_string(text_data_json['AccountEmail'])
+                val = await RequestFolderDataFunc(email=emailval)
+                await self.send_msg(data=val,type='RequestFolderData')
+            elif (message == 'RequestAddFolder'):
+                emailval = sanitize_string(text_data_json['AccountEmail'])
+                folderName = sanitize_string(text_data_json['folderName'])
+                val = await RequestAddFolderFunc(email=emailval,foldername = folderName)
+                await self.send_msg(data=val,type='RequestAddFolder')  
+            elif (message == 'RequestFolderFiles'):
+                emailval = sanitize_string(text_data_json['AccountEmail'])
+                folderId = sanitize_string(text_data_json['folderId'])
+                val = await RequestFolderFilesFunc(email=emailval,folderId = folderId)
+                await self.send_msg(data=val,type='RequestFolderFiles')
+            elif (message == 'RequestDeleteFolder'):
+                emailval = sanitize_string(text_data_json['AccountEmail'])
+                folderId = sanitize_string(text_data_json['folderId'])
+                val = await RequestDeleteFolderFunc(email=emailval,folderId = folderId)
+                await self.send_msg(data=val,type='RequestDeleteFolder')
+            elif (message == 'RequestEditfolderName'):
+                dataval = text_data_json['data']
+                val = await RequestEditfolderNameFunc(data=dataval)
+                await self.send_msg(data=val,type='RequestEditfolderName')
+            elif (message == 'RequestDeleteRepositoryFile'):
+                data = text_data_json['data']
+                val = await RequestDeleteRepositoryFileFunc(data=data)
+                await self.send_msg(data=val,type='RequestDeleteRepositoryFile') 
+   

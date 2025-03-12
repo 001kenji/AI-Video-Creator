@@ -33,7 +33,7 @@ import EditIcondark from '../json/editIcondark'
 import CarouselTestImg from '../assets/images/lost.jpg'
 import ProfileTestImg from '../assets/images/fallback.jpeg'
 
-import { FAIL_EVENT, FolderListReducer, INTERCEPTER, LOADING_USER, SUCCESS_EVENT } from "../actions/types.jsx";
+import { FAIL_EVENT, FolderListReducer, INTERCEPTER, LOADING_USER, ProfileYoutubeChannelsReducer, SUCCESS_EVENT } from "../actions/types.jsx";
 import { useNavigate, useParams } from "react-router-dom";
 
 // using argon2 pashing for both javascript and py
@@ -58,6 +58,8 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     const ProfileDB = useSelector((state) => state.ProfileReducer.ProfileAbout)
     const [ReLoad,SetReLoad] = useState(false)
     const StoreProfileAccount = useSelector((state) => state.ProfileReducer.ProfileAccount)
+    const ProfileYoutubeChannels = useSelector((state) => state.ProfileReducer.ProfileYoutubeChannels)
+    
     const [FolderList,SetFolderList] = useState(useSelector((state) => state.ProfileReducer.FolderList))
     const FileListReducerVal = useSelector((state) => state.ProfileReducer.FileList)
     const [FileList,SetFileList] = useState(useSelector((state) => state.ProfileReducer.FileList))
@@ -108,23 +110,14 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
         size : '',
         type : ''
     })
-    const [OverviewUpload,SetOverviewUpload] = useState({
-        'file' : null,
-        'src' : null,
-        'Name' : null,
-        'LoadingVideoList' : '',
-        'Scope' : ''
-    })
-    const [ProfileAboutContainer,SetProfileAboutContainer] = useState({
-        'GoogleAPICredentialFile' : null
-    })
+   const [ProfileAboutData,SetProfileAboutData] = useState([])
     const [ProfileCoverPhoto,SetProfileCoverPhoto] = useState(CarouselTestImg)
     const [ProfilePicturePhoto,SetProfilePicturePhoto] = useState(ProfileTestImg)
     const UploadProfilePicture = useRef(null)
     const FolderListContainer = useRef(null)
     const FileListContainer = useRef(null)
     const RepositoryUploadFile = useRef(null)
-    
+
     const WsDataStream = useRef(null)
     // Ref hook for animated icons
     const EditIconRef = useRef()
@@ -450,10 +443,38 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     })
                 }
                 
+            }else if(data.type == 'RequestuserAbout') {
+                var val = data.message
+                if (val['type'] == 'success') {
+                    SetProfileAboutData(val['list'])
+                }else {
+                    toast(val['result'], {
+                        type: val['type'],
+                        theme: Theme,
+                        position: 'top-right',
+                    })
+                }
+                
+            }if(data.type == 'RequestRevokeYoutubeConnection') {
+                var val = data.message
+                if (val['type'] == 'success') {
+                    SetFolderList(val['list'])
+                    ShowToast(val['type'],val['result'])
+                    dispatch({
+                        type : ProfileYoutubeChannelsReducer,
+                        payload : val['list'] == null ? [] : val['list'][0]['YoutubeChannels']
+                    })
+
+                }else {
+                    ShowToast(val['type'],val['result'])
+                }
+                
             }
         };
         WsDataStream.current.onopen = (e) => {
-            // websocket is opened
+           if(UserEmail != 'gestuser@gmail.com') {
+                requestWsStream('RequestuserAbout')
+           }
         }
         // var Log = document.getElementById(`CommentContainer-${14}`)
         // console.log(Log.childNodes)
@@ -466,6 +487,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
         //   })
           
         }
+
         if(WsDataStream.current.readyState === WsDataStream.current.OPEN){
             if(msg == 'RequestFolderData') {
                 WsDataStream.current.send(
@@ -510,6 +532,22 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     JSON.stringify({
                         'message' : 'RequestDeleteRepositoryFile',
                         'data' : body
+                    })
+                )
+            }else if (msg == 'RequestuserAbout'){
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestuserAbout',
+                        'email' : UserEmail
+                    })
+                )
+            }if(msg == 'RequestRevokeYoutubeConnection') {
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestRevokeYoutubeConnection',
+                        'AccountEmail' : UserEmail,
+                        'token': body[0],
+                        'tokenName' : body[1]
                     })
                 )
             }
@@ -856,7 +894,59 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
             setValue('password','')
         }
     }
+    const TimeUpdater = ({dateString}) => {
+        const date = new Date(dateString  + '+03:00') ; // Append time and timezone offset
+        const now = new Date();
+        const seconds = Math.floor((now - date) / 1000);
+        
+        const intervals = [
+            { label: 'year', seconds: 31536000 },
+            { label: 'month', seconds: 2592000 },
+            { label: 'week', seconds: 604800 },
+            { label: 'day', seconds: 86400 },
+            { label: 'hour', seconds: 3600 },
+            { label: 'minute', seconds: 60 },
+            { label: 'second', seconds: 1 }
+        ];
+        
+        for (const interval of intervals) {
+            const count = Math.floor(seconds / interval.seconds);
+            //console.log(count)
+            if (count > 0) {
+                var val = count === 1 ? `1 ${interval.label} ago` : `${count} ${interval.label}s ago`
 
+                return val
+            }
+        }
+        
+        return 'just now';
+    }
+
+    function RevokeYoutubeConnection (tokenPath,name){
+        if(tokenPath != null){
+            ShowToast('info','Processing request')
+            requestWsStream('RequestRevokeYoutubeConnection',[tokenPath,name])
+        }
+    }
+    
+    const MapProfileYoutubeChannels = ProfileYoutubeChannels.map((items, i) => {
+        const date = new Date(items.DateCreated  + '+03:00') ;
+        return (
+            <div key={i} className="flex flex-col group bg-slate-400 dark:bg-slate-700/40 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start px-2 ">
+                <div className="w-full flex flex-row justify-between ">
+                    <p className="text-sm py-1 text-slate-800 dark:text-slate-100">{items.name}</p>
+                    <p data-tip={date.toDateString()} className="text-xs py-1 tooltip tooltip-left  cursor-pointer  text-slate-700 dark:text-slate-300 "><TimeUpdater dateString={items.DateCreated} /></p>
+                </div> 
+                <div className={`${IsEditingProfile ? 'flex flex-row' : 'hidden'} w-full  `} >
+                    <button onClick={()=> RevokeYoutubeConnection(items.tokenPath,items.name)} data-tip="Remove connection"  className={` tooltip tooltip-left w-fit ml-auto h-fit bg-transparent `} >
+                        <BsTrash3   className=" m-auto text-base cursor-pointer text-rose-800 dark:text-rose-300 hover:text-pink-500 dark:hover:text-pink-500  transition-all duration-300 "  role="button" />
+                    </button>  
+                </div>
+                
+            </div>
+        );
+    });
+   
     return (
         <div className={` h-full w-full min-w-full relative max-w-[100%] flex flex-col justify-start `} >
             {/* cover container */}
@@ -948,8 +1038,11 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     <button onClick={() => SetAboutMeSelectedTab('Overview')} className= {` ${AboutMeSelectedTab == 'Overview' ? ' text-sky-400 dark:text-slate-200 dark:bg-opacity-60 bg-slate-700  ' : 'bg-slate-600 dark:bg-slate-800 dark:text-slate-400 text-slate-950'} w-full text-left  rounded-md transition-all hover:text-slate-200 duration-300  p-2 font-semibold hover:bg-slate-700 `} >Overview</button>
                 </div>
                 {/* selected overview tab info EDITING */}
-                <div className={`${AboutMeSelectedTab == 'Overview' && IsEditingProfile ? 'flex flex-col gap-2' : ' hidden'} text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
-
+                <div className={`flex flex-col gap-2 text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
+                    <p className=" text-sm pt-1 text-slate-800 dark:text-slate-100 " >Your linked youtube accounts</p>
+                    <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-400/40 gap-2 py-3 px-2  transition-all duration-300  w-full rounded-sm overflow-y-auto h-fit max-h-[400px] overflow-x-hidden ml-2 justify-around`} >
+                        {MapProfileYoutubeChannels}
+                    </div>
                 </div>
                 {/* selected overview tab info view */}
                 

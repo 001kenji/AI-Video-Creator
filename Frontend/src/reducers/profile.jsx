@@ -4,12 +4,14 @@ import {
     FolderListReducer,
     FileListReducer,
     ProfileAccountReducer,
-    SelectedPageReducer
+    SelectedPageReducer,
+    ProfileYoutubeChannelsReducer
     
 }from '../actions/types'
 
 const initialState = {
     ProfileAbout : null,
+    ProfileYoutubeChannels : [],
     SelectedPage : null,
     FolderList : [],
     FileList : [],
@@ -35,6 +37,11 @@ export default function (state = initialState, action) {
             return {
                 ...state,
                 ProfileAbout : payload
+            }
+        case ProfileYoutubeChannelsReducer:
+            return {
+                ...state,
+                ProfileYoutubeChannels : payload
             }
         case FolderListReducer:
             return {

@@ -48,6 +48,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'src' : ''
     })
     const ProfileDB = useSelector((state) => state.ProfileReducer.ProfileAbout)
+    const ProfileYoutubeChannels = useSelector((state) => state.ProfileReducer.ProfileYoutubeChannels)
+    const [SelectedtokenPathName,SetSelectedtokenPathName] = useState('token.json')
     const [ProfilePicturePhoto,SetProfilePicturePhoto] = useState( db != null ? db.ProfilePic : ProfileTestImg)
     const AiVideoMergeUrl = useSelector((state) => state.AiReducer.AiVideoMergeUrl)
     const AudioToVideoTranscription = useSelector((state) => state.AiReducer.AudioToVideoTranscription)
@@ -86,9 +88,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'VideoListDetails' : ``,
         'SelectedAudioClassificationOptions' : [],
         'VideoListDetailsWithImages' : [],
-        'UploadedVideoId' : []
+        'UploadedVideoId' : [],
+        'ClearServer' : true
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
+    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -126,6 +129,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const [SelectedAudioToVideoContainer,SetSelectedAudioToVideoContainer] = useState(0)
     const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
     const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
+    
     const WsDataStream = useRef(null)
     const Theme = useSelector((state)=> state.auth.Theme)  
 
@@ -142,7 +146,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             FetchUserProfile(JSON.stringify([data]))
         }      
     },[db,extrainfo])
-    
+ 
     useEffect(() => {
         
         if (AiVideoMergeUrl.length != 0){
@@ -661,8 +665,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 return {
                                     ...e,
                                     'LoadingVideoList' : false,
-                                    'SecondStepLevel' : 1,
-                                    'progressLevel' : 2,
+                                    'FirstStepLevel' : 1,
+                                    'progressLevel' : 1,
                                 }
                             })
                         }, 4000);
@@ -748,8 +752,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             return {
                                 ...e,
                                 'LoadingVideoList' : false,
-                                'SecondStepLevel' : 1,
-                                'progressLevel' : 2,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
                             }
                         })
                     }, 4000);
@@ -922,6 +926,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     payload : []
                 })
                 ShowToast(val['type'],val['result'])
+                if(db != null){
+                    var data = {
+                        'scope' : 'ReadProfile',
+                        'AccountEmail' : UserEmail,
+                        'AccountID' : extrainfo,
+                        'IsOwner' : true,
+                    }
+                    FetchUserProfile(JSON.stringify([data]))
+                }  
             }else if (val['type'] == 'retry'){
                 var NumberOfRequestRetry =  val['NumberOfRequestRetry']
                 var nextNum = Number(NumberOfRequestRetry) + 1
@@ -947,8 +960,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             return {
                                 ...e,
                                 'LoadingVideoList' : false,
-                                'SecondStepLevel' : 1,
-                                'progressLevel' : 2,
+                                'ThirdStepLevel' : 1,
+                                'progressLevel' : 3,
                             }
                         })
                     }, 4000);
@@ -1036,7 +1049,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'prompt' : PostContentContainer.VideoListDetailsWithImages,
                         'VideoUrl' : AiVideoMergeUrl,
                         'SocialMediaType' : body,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
+                        'NumberOfRequestRetry' : NumberOfRequestRetry,
+                        'tokenPathName' : SelectedtokenPathName
                     })
                 )
             }else if(msg == 'RequestClearServer') {
@@ -1147,7 +1161,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 'VideoListDetails' : '',
                 'SelectedAudioClassificationOptions' : [],
                 'VideoListDetailsWithImages' : [],
-                'UploadedVideoId' : []
+                'UploadedVideoId' : [],
+                'ClearServer' : true
                 
             })
             reset()
@@ -1300,7 +1315,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             
         }else if (props == 'Reset'){
             if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
-                if(getValues('ClearServer') == true){
+                if(PostContentContainer.ClearServer == true){
                     ShowToast('warning','Unless you login you can\'t clear your server. Uncheck \'Clear\' checkbox to proceed ')    
                     return 
                 }
@@ -1311,12 +1326,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 payload : []
             })
             ResetPostContentContainer('reset')
-            if(getValues('ClearServer')){
+            if(PostContentContainer.ClearServer){
                 
                 requestWsStream('RequestClearServer')
                 
             }
-            setValue('ClearServer',true)
+            
         }
     }
     const handleSocialMediaOptionsChange = (selected,val) => {
@@ -1776,7 +1791,38 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             </div>
         )
     })
-   
+    const ToongleProfileYoutubeChannelsChange = (event) => {
+        const {value} = event.target
+        SetSelectedtokenPathName(value)
+    }
+    
+    const MapProfileYoutubeChannels = ProfileYoutubeChannels.map((items, i) => {
+        return (
+            <div key={i} className="flex flex-row group hover:bg-slate-400 dark:hover:bg-slate-700 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start gap-4 px-2 ">
+                <input 
+                    onChange={ToongleProfileYoutubeChannelsChange}
+                    type="radio"
+                    name="profileYoutubeChannels"  // common name for the group
+                    disabled={false} //{PostContentContainer.LoadingVideoList == true}
+                    value={items.tokenPath}
+                    checked={items.tokenPath === SelectedtokenPathName}  // control checked state
+                    className="radio radio-info dark:radio-success shadow-xs shadow-slate-500/80 dark:shadow-slate-100/60"
+                />
+                <p className="text-sm py-1 text-slate-800 dark:text-slate-400">{items.name}</p>
+            </div>
+        );
+    });
+    
+    const ToongleClearServerChange = (event) => {
+        const {checked} = event.target
+       
+        SetPostContentContainer((e) => {
+            return {
+                ...e,
+                'ClearServer' : checked
+            }
+        })
+    }
     
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text)
@@ -1787,7 +1833,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             });
     }
     //videos of birds, others are eagles, parots, flamingos and other more
-   
     return (
         <div className={` h-full  bg-transparent min-h-[100vh] py-4 overflow-x-hidden w-full overflow-y-auto relative min-w-full max-w-[100%] flex flex-col justify-between  `} >
             {/*media galary displayer */}
@@ -2073,7 +2118,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Review your video</p>
-                                
                                 <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
                                         <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
@@ -2092,7 +2136,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 <img className={`${AiVideoMergeUrl.length == 0  ? 'flex mask mask-squircle max-h-80 max-w-80 mx-auto lg:mr-auto lg:ml-0 ' : 'hidden'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${`media unavailable ${Theme}.jpg`}` || null}  />
                                 
                                 {/* progressLevel buttons */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
+                                <p className=" text-sm pt-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
+                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'flex' : 'hidden'} text-[x-small] text-slate-800 dark:text-slate-400 `} >If not selected you will be prompted to link another account via google</small>
+                                <small onClick={() => SetSelectedtokenPathName('token.json')} className={`${ProfileYoutubeChannels.length != 0 && PostContentContainer.LoadingVideoList == false ? 'flex' : 'hidden'} text-sm text-slate-800 dark:text-slate-400 underline cursor-pointer hover:text-red-800 dark:hover:text-red-300 transition-all duration-200 w-fit `} >clear</small>
+                                <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
+                                    {MapProfileYoutubeChannels}
+                                </div>
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
@@ -2130,9 +2179,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Clear my files in Mela server</p>
                                 <label className="label cursor-pointer">
                                     <span className="label-text text-sm text-slate-800 dark:text-slate-400 mx-3">Clear</span>
-                                    <input {...register('ClearServer',{
-                                        required : false
-                                    })} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
+                                    <input onChange={ToongleClearServerChange} checked={PostContentContainer.ClearServer} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
                                 </label>
                                 {/* progressLevel buttons */}
                                 <div className=" flex flex-row flex-wrap gap-2 mt-4 w-[90%] max-w-[600px] mx-auto justify-around">
@@ -2320,7 +2367,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>                                        :
-                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length != 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
+                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length == 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
                                     }
                                 </div>
                             </div>
@@ -2364,6 +2411,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 
                                 {/* progressLevel buttons */}
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
+                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'flex' : 'hidden'} text-[x-small] text-slate-800 dark:text-slate-400 `} >If not selected you will be prompted to link another account via google</small>
+                                <small onClick={() => SetSelectedtokenPathName('token.json')} className={`${ProfileYoutubeChannels.length != 0 && PostContentContainer.LoadingVideoList == false ? 'flex' : 'hidden'} text-sm text-slate-800 dark:text-slate-400 underline cursor-pointer hover:text-red-800 dark:hover:text-red-300 transition-all duration-200 w-fit `} >clear</small>
+                                <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
+                                    {MapProfileYoutubeChannels}
+                                </div>
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
                                         PostContentContainer.LoadingVideoList == true ? 
@@ -2401,9 +2453,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Clear my files in Mela server</p>
                                 <label className="label cursor-pointer">
                                     <span className="label-text text-sm text-slate-800 dark:text-slate-400 mx-3">Clear</span>
-                                    <input {...register('ClearServer',{
-                                        required : false,
-                                    })} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
+                                    <input onChange={ToongleClearServerChange} checked={PostContentContainer.ClearServer} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
                                 </label>
                                 {/* progressLevel buttons */}
                                 <div className=" flex flex-row flex-wrap gap-2 mt-4 w-[90%] max-w-[600px] mx-auto justify-around">

@@ -29,6 +29,7 @@ export const PageToogleReducer = 'PageToogleReducer'
 
 // profile types
 export const ProfileAboutReducer = 'ProfileAboutReducer'
+export const ProfileYoutubeChannelsReducer = 'ProfileYoutubeChannelsReducer'
 export const FolderListReducer = 'FolderListReducer'
 export const FileListReducer = 'FileListReducer'
 export const ProfileAccountReducer = 'ProfileAccountReducer'

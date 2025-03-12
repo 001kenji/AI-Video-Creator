@@ -77,7 +77,7 @@ class UserAccountAdmin (admin.ModelAdmin):
             
             obj.set_password(form.cleaned_data['password'])
            
-            super().save_model(request, obj, form, change)
+        super().save_model(request, obj, form, change)
     
     def delete_model(self, request, obj):
         if obj.email == "daimac@gmail.com" or obj.email == 'kenjicladia@gmail.com' or obj.email == 'gestuser@gmail.com':
@@ -119,7 +119,7 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','password','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','ProfileAbout',)
+                'fields' : ('ProfilePic','ProfileAbout','YoutubeChannels')
             })
             ,)
         else:
@@ -128,7 +128,7 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','ProfileAbout',)
+                'fields' : ('ProfilePic','ProfileAbout','YoutubeChannels')
             })
             ,)
         return New_fieldsets 

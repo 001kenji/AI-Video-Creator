@@ -4,7 +4,8 @@ import {
     SUCCESS_EVENT,
     FileListReducer,
     ProfileAccountReducer,
-    ProfileAboutReducer
+    ProfileAboutReducer,
+    ProfileYoutubeChannelsReducer
 } from './types'
 import Cookies from 'js-cookie'
 import { useSelector } from 'react-redux'
@@ -95,6 +96,10 @@ export const FetchUserProfile = (props) => async dispatch => {
            dispatch({
             type : ProfileAboutReducer,
             payload : val[1]['ProfileAbout']
+           })
+           dispatch({
+            type : ProfileYoutubeChannelsReducer,
+            payload : val[1]['YoutubeChannels'] != null ? val[1]['YoutubeChannels'] : []
            })
             dispatch({
                 type : ProfileAccountReducer,

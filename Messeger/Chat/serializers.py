@@ -25,7 +25,17 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         
         fields = ( 
-            'name','email','id','ProfilePic')
+            'name','email','id','ProfilePic','YoutubeChannels')
+        
+class UserAboutSerializer(serializers.ModelSerializer):
+    #id = serializers.UUIDField(format='hex')  # Converts UUID to a string
+    #including an extra external field
+    # 
+    class Meta:
+        model = User
+        
+        fields = ( 
+            'ProfileAbout','YoutubeChannels')
 
 class FolderTableSerializer(serializers.ModelSerializer):
     #id = serializers.UUIDField(format='hex')  # Converts UUID to a string

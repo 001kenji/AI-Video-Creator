@@ -114,7 +114,7 @@ class Account(AbstractBaseUser,PermissionsMixin):
     ProfilePic = models.ImageField(upload_to='images/',default='/images/fallback.jpeg',verbose_name='Profile Picture', blank=True )    
     ProfileRepository = models.JSONField(blank=True,null=True)
     ProfileAbout = models.JSONField(blank=True,null=True)
-
+    YoutubeChannels = models.JSONField(blank=True,null=True)
     groups = models.ManyToManyField(
         Group,
         related_name='useraccount_set',  # Custom related_name
@@ -190,3 +190,12 @@ class FileTable(models.Model):
         on_delete=models.CASCADE,  # Deletes comment when the related Account is deleted
         related_name='files'    # Allows reverse lookup from Account to PostComment
     )
+
+
+
+
+
+
+
+# netstat -ano | findstr :8080
+# taskkill /PID 1234 /F

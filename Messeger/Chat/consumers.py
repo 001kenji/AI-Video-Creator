@@ -1,6 +1,6 @@
 # chat/consumers.py
 import json,threading,datetime,aiohttp,requests, asyncio
-import redis,aiofiles
+import redis,aiofiles,re
 from django.core.files.storage import FileSystemStorage
 import time,os,shutil,base64
 from django.conf import settings, Settings
@@ -13,7 +13,7 @@ from channels.db import database_sync_to_async
 from django.core.files.storage import default_storage
 from django.db.models import Q
 from .models import sanitize_string
-from .serializers import FolderTableSerializer,FileTableSerializer
+from .serializers import FolderTableSerializer,FileTableSerializer,UserAboutSerializer
 from circuitbreaker import circuit
 import google.generativeai as genai
 from django.conf import settings
@@ -398,7 +398,54 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,Numbe
 # Redis connection
 redisConnection = settings.REDIS_CONNECTION 
 # redis.StrictRedis(host='localhost', port=6379, db=0, decode_responses=True)
-SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+SCOPES = [
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.readonly'
+]
+
+def UpdateYoutubeChannelData(email,sanitized_channel_title,full_token_path):
+    print('\nUpdating token.json file\n')
+    accountRef = Account.objects.filter(email = email)
+    dataval = list(accountRef.values('YoutubeChannels'))
+    now = datetime.datetime.now()
+    short_date = now.strftime("%Y-%m-%dT%H:%M:%S")
+    if dataval[0]['YoutubeChannels'] == None:
+        val = [{
+            'name' : str(sanitized_channel_title),
+            'tokenPath' : str(full_token_path),
+            'DateCreated' : str(short_date)
+        }]
+    else:
+        channelData = dataval[0]['YoutubeChannels']
+        data_by_name = {item["name"]: item for item in channelData}
+        # Now, checking if a specific channel exists is as simple as:
+        channel_to_find = sanitized_channel_title
+        print(channel_to_find,'\n',sanitized_channel_title)
+        if channel_to_find in data_by_name:
+            print('found')
+            new_date = {
+                'name' : str(sanitized_channel_title),
+                'tokenPath' : str(full_token_path),
+                'DateCreated' : str(short_date)
+            }
+            data_by_name[channel_to_find] = new_date
+            print('updated')
+            val = list(data_by_name.values())
+            print('whole: \n',channelData,'\n new: ',val)
+        else:
+
+            channelData.append({
+                'name' : str(sanitized_channel_title),
+                'tokenPath' : str(full_token_path),
+                'DateCreated' : str(short_date)
+            })
+            val = channelData
+
+    accountRef.update(YoutubeChannels = val)
+    print('\nupdated users youtube linked account token.json file\n')
+    return
+
+
 async def get_authenticated_service(email, credential_file_path, token_path):
     """Authenticate and return YouTube service with persistent authentication in a non-blocking way."""
     try:
@@ -408,18 +455,22 @@ async def get_authenticated_service(email, credential_file_path, token_path):
         token_exists = await asyncio.to_thread(os.path.exists, token_path)
         if token_exists:
             print("🔑 Loading existing token...")
-            async with aiofiles.open(token_path, 'r') as token_file:
-                token_content = await token_file.read()
-                credentials_data = json.loads(token_content)
-                # Wrap the synchronous call in a thread.
-                credentials = await asyncio.to_thread(Credentials.from_authorized_user_info, credentials_data, SCOPES)
+            try:
+                async with aiofiles.open(token_path, 'r') as token_file:
+                    token_content = await token_file.read()
+                    credentials_data = json.loads(token_content)
+                    credentials = await asyncio.to_thread(
+                        Credentials.from_authorized_user_info, credentials_data, SCOPES
+                    )
+            except Exception as e:
+                print(f'\n Catched error {e},\nFetching new authentication')
+                credentials = None
 
         # If credentials are missing or invalid, refresh or perform new OAuth flow.
         if not credentials or not credentials.valid:
             if credentials and credentials.expired and credentials.refresh_token:
                 try:
                     print("🔄 Refreshing token...")
-                    # Refresh credentials in a thread.
                     await asyncio.to_thread(credentials.refresh, Request())
                 except Exception as e:
                     print(f"⚠ Token refresh failed: {e}")
@@ -428,17 +479,16 @@ async def get_authenticated_service(email, credential_file_path, token_path):
             if not credentials:
                 print("🔐 New authentication required...")
 
-                # Define a helper to run the OAuth flow synchronously.
+                # Helper function to run the OAuth flow synchronously.
                 def run_oauth_flow():
                     flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
                         credential_file_path, SCOPES
                     )
-                    # Example: generate a unique key for Redis (if needed)
                     auth_key = f"oauth_flow:{email}"
                     print('Store authentication state in Redis')
                     auth_url, state = flow.authorization_url(
-                        access_type="offline",  # Ensures refresh token is issued.
-                        prompt='consent'
+                    access_type="offline",  # Ensures refresh token is issued.
+                    prompt='consent'
                     )
                     # Assuming redisConnection is available and thread-safe.
                     redisConnection.set(auth_key, json.dumps({"flow_state": state, "email": email}), ex=300)
@@ -453,19 +503,70 @@ async def get_authenticated_service(email, credential_file_path, token_path):
                 # Run the blocking OAuth flow in a separate thread.
                 credentials = await asyncio.to_thread(run_oauth_flow)
 
-            # Save new token using asynchronous file I/O.
-            print("💾 Saving new token for future use")
-            async with aiofiles.open(token_path, 'w') as token_file:
-                await token_file.write(credentials.to_json())
+            # Build the YouTube service to retrieve channel info.
+            def build_youtube_service():
+                return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+            youtube = await asyncio.to_thread(build_youtube_service)
+            
+            # Retrieve channel information to get the channel title.
+            print("🔍 Retrieving YouTube channel information...")
+            channel_response = await asyncio.to_thread(
+                lambda: youtube.channels().list(part="snippet", mine=True).execute()
+            )
+            if not channel_response.get("items"):
+                raise Exception("Seams like there are no youtube channels found. Try again later")
+            channel_title = channel_response["items"][0]["snippet"]["title"]
+            print(f"Channel title retrieved: {channel_title}")
 
-        # Build the YouTube service in a thread (since discovery.build is blocking).
-        def build_youtube_service():
-            return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-        youtube = await asyncio.to_thread(build_youtube_service)
+            # Sanitize the channel title to use in the filename.
+            sanitized_channel_title = re.sub(r'\W+', '_', channel_title)
+            # Define new token path using the channel name.
+            folder_path = os.path.join(settings.MEDIA_ROOT,email)
+            new_token_name = f"{sanitized_channel_title}_token.json"
+            full_token_path = os.path.join(folder_path, new_token_name)
+            # remove duplicate
+            folder_exists = await asyncio.to_thread(os.path.exists, full_token_path)
+            if  folder_exists:
+                await asyncio.to_thread(os.remove, full_token_path)
+                
+            print(f"💾 Saving new token for future use at {full_token_path}")
+            async with aiofiles.open(full_token_path, 'w') as token_file:
+                await token_file.write(credentials.to_json())
+            # Update token_path if you want to refer to the new file later.
+            token_path = full_token_path
+
+            # Call UpdateYoutubeChannelData asynchronously in a non-blocking way.
+            await asyncio.to_thread(
+                UpdateYoutubeChannelData,
+                email=email,
+                sanitized_channel_title=sanitized_channel_title,
+                full_token_path=new_token_name
+            )
+        else:
+            # If valid credentials were loaded, build the YouTube service.
+            def build_youtube_service():
+                return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+            youtube = await asyncio.to_thread(build_youtube_service)
+
         print("✅ Authentication successful!")
         return youtube
+
     except Exception as e:
+        print(e)
         raise RetryCustomError("retry", "There seams to be a proble when authenticating you❌")
+
+
+async def TestFunc():
+    email = "kenjicladia@gmail.com"
+    folder_path = os.path.join(settings.MEDIA_ROOT,email)
+
+    full_credential_file_path = os.path.join(settings.MEDIA_ROOT,'mela@mela','client_secret.json')
+    full_token_path = os.path.join(folder_path, 'token.json')
+
+    service = await get_authenticated_service(email, full_credential_file_path, full_token_path)
+    print(service)
+
+# asyncio.run(TestFunc())
 
 async def is_video_a_short(video_path):
     """Check asynchronously if the video is a YouTube Short"""
@@ -481,7 +582,7 @@ async def is_video_a_short(video_path):
 
 
 @asyncCircuitBreaker
-async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,NumberOfRequestRetry):
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,NumberOfRequestRetry,tokenPathName):
     """Upload video to YouTube with metadata"""
     try:
         
@@ -490,7 +591,7 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
         folder_path = os.path.join(settings.MEDIA_ROOT,email)
         # Get authenticated service
         full_credential_file_path = os.path.join(settings.MEDIA_ROOT,'mela@mela','client_secret.json')
-        full_token_path = os.path.join(folder_path, 'token.json')
+        full_token_path = os.path.join(folder_path,tokenPathName)
         
         # Try using stored credentials
         ### MADE THE FUNCTION ASYNC 
@@ -631,11 +732,11 @@ def RequestFolderDataFunc(email):
             responseval = {'type' : 'success','result' : 'successful','list' : foldet_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
 @circuit
@@ -660,11 +761,11 @@ def RequestAddFolderFunc(email,foldername):
             responseval = {'type' : 'success','result' : 'Folder added','list' : foldet_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
 @circuit
@@ -683,11 +784,11 @@ def RequestFolderFilesFunc(email,folderId):
             responseval = {'type' : 'success','result' : 'successful','list' : file_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
 @circuit
@@ -709,11 +810,11 @@ def RequestEditfolderNameFunc(data):
             responseval = {'type' : 'success','result' : 'Folder successfully edited','list' : folder_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
 @circuit
@@ -741,7 +842,7 @@ def RequestDeleteFolderFunc(email,folderId):
                     Post_file_path = os.path.join(settings.MEDIA_ROOT,emailval,'repository',fileurl)
                     os.remove(Post_file_path)
             else:
-                responseval = {'type' : 'error','result' : 'invalid data'}
+                responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
                 return responseval
             #deleting folder
             folderref.delete()
@@ -752,13 +853,35 @@ def RequestDeleteFolderFunc(email,folderId):
             responseval = {'type' : 'success','result' : 'Folder Deleted','list' : folder_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
+
+@circuit
+@sync_to_async
+def RequestuserAboutFunc(email):
+    try:
+        if email != None :
+            emailval = email
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            
+            accountref = Account.objects.filter(email = emailval)
+            about_val = UserAboutSerializer(accountref,many=False)  
+            responseval = {'type' : 'success','result' : 'successful','list' : about_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
+        return reponseval
 
 @circuit
 @sync_to_async
@@ -787,12 +910,108 @@ def RequestDeleteRepositoryFileFunc(data):
             responseval = {'type' : 'success','result' : 'Deleted successful','list' : file_val.data}
             return responseval
         else:
-            responseval = {'type' : 'error','result' : 'invalid data'}
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
             return responseval
     except Exception as e:
         #print(e)
-        reponseval = {'type' : 'error','status' : 'error','result' : 'invalid data'}
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
+
+
+def revoke_oAuth_token(emailval,token):
+        """
+        revoke users existing access of your app and user's youtube
+        """
+        #removing entire user content details stored in the server
+        try:
+            folder_name = str(emailval)
+            file_path = os.path.join(settings.MEDIA_ROOT, folder_name,token)
+            if os.path.exists(file_path):
+                # Open and read the JSON file
+                with open(file_path, 'r') as file:
+                    token_data = json.load(file)
+
+                # Retrieve the 'token' key
+                access_token = token_data.get("token")
+                print('token:',access_token)
+                response = requests.post(
+                    "https://accounts.google.com/o/oauth2/revoke",
+                    params={"token": access_token},
+                    headers={"content-type": "application/x-www-form-urlencoded"},
+                )
+                if response.status_code == 200:
+                    os.remove(file_path)
+                    print("✅ OAuth token revoked successfully.")
+                    return [True]
+                else:
+                    #os.remove(file_path)
+                    print("⚠ Failed to revoke token:", response.json())
+                    return [False,response.json()]
+            else:
+                return [False,'your connection file seams to be unreachable']
+        except Exception as e:
+            print(f'\nError {e} \n occured when trying to run the revoke token function') 
+            return [False,{e}]  
+
+
+# revoke_oAuth_token('kenjicladia@gmail.com','Beyond_token.json')
+
+
+@circuit
+@sync_to_async
+def RequestRevokeYoutubeConnectionFunc(email,token,tokenName):
+    try:
+        if email and token :
+            emailval = email
+            
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountRef = Account.objects.filter(email = email)
+            dataval = list(accountRef.values('YoutubeChannels'))
+            # Check if any account was found
+            if not dataval:
+                responseval = {'type' : 'error','result' : 'Seams like this account cannot be found. Try again later'}
+                return responseval
+            
+            RevokeStatus = revoke_oAuth_token(emailval=email,token=token)
+            #print('satus:',RevokeStatus)
+            if RevokeStatus[0] != True:
+                reasons = RevokeStatus[1] if RevokeStatus[1] else ''
+                responseval = {'type' : 'error','result' : f'Seams like this channel connection fails to disconnect, {reasons}. Try again later'}
+                return responseval
+            
+            if dataval[0]['YoutubeChannels'] != None:
+                channelData = dataval[0]['YoutubeChannels']
+                data_by_name = {item["name"]: item for item in channelData}
+                # Now, checking if a specific channel exists is as simple as:
+                channel_to_find = tokenName
+                print(data_by_name)
+                if channel_to_find in data_by_name:
+                    del data_by_name[channel_to_find]
+                    val = list(data_by_name.values())
+                else:
+                    # If not found, retain the original list
+                    val = channelData
+            else:
+                val = []
+
+            
+
+            accountRef.update(YoutubeChannels = val)
+            foldetData = accountRef.values('YoutubeChannels')
+            foldet_val = UserAboutSerializer(foldetData,many=True)
+            responseval = {'type' : 'success','result' : f'{tokenName} channel successful disconnected','list' : foldet_val.data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
+        return reponseval
+
+
 
 class AIConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args, **kwargs):
@@ -876,10 +1095,11 @@ class AIConsumer(AsyncWebsocketConsumer):
                 email = sanitize_string(text_data_json['email'])
                 prompt = text_data_json['prompt']
                 VideoUrl = text_data_json['VideoUrl']
+                tokenPathName = text_data_json['tokenPathName']
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry,tokenPathName))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestClearServer'):
@@ -904,8 +1124,8 @@ class AIConsumer(AsyncWebsocketConsumer):
     async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
         val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestCreateImagesTranscript')
-    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry):
-        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry,tokenPathName):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,NumberOfRequestRetry=NumberOfRequestRetry,tokenPathName=tokenPathName)
         await self.send_msg(data=val, type='RequestUploadVideos')
     
 
@@ -993,4 +1213,14 @@ class ChatList(AsyncWebsocketConsumer):
                 data = text_data_json['data']
                 val = await RequestDeleteRepositoryFileFunc(data=data)
                 await self.send_msg(data=val,type='RequestDeleteRepositoryFile') 
+            elif (message == 'RequestuserAbout'):
+                email = sanitize_string(text_data_json['email'])
+                val = await RequestuserAboutFunc(email=email)
+                await self.send_msg(data=val,type='RequestuserAbout') 
+            elif (message == 'RequestRevokeYoutubeConnection'):
+                email = sanitize_string(text_data_json['AccountEmail'])
+                token = sanitize_string(text_data_json['token'])
+                tokenName = sanitize_string(text_data_json['tokenName'])
+                val = await RequestRevokeYoutubeConnectionFunc(email=email,token=token,tokenName=tokenName)
+                await self.send_msg(data=val,type='RequestRevokeYoutubeConnection') 
    
