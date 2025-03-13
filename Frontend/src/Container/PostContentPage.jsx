@@ -25,6 +25,8 @@ import Select from "react-select";
 // lottieflow animated icons 
 import ProfileTestImg from '../assets/images/fallback.jpeg'
 import { useParams } from "react-router-dom";
+
+import NotificationAudio from '../assets/audio/notification.wav'
 import { AiVideoMergeUrlReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
 // using argon2 pashing for both javascript and py
 //const argon2 = require('argon2');
@@ -75,7 +77,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'FirstStepLevel' : 1,
         'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 1,
+        'progressLevel' : 3,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'SelectedSocialMediaType' : 'youtube',
@@ -115,6 +117,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         { value: "8", label: "8 images",name : 'SocialMediaNumberImagesOptions' },
         { value: "9", label: "9 images",name : 'SocialMediaNumberImagesOptions' },
         { value: "10", label: "10 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "11", label: "11 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "12", label: "12 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "13", label: "13 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "14", label: "14 images",name : 'SocialMediaNumberImagesOptions' },
+        { value: "15", label: "15 images",name : 'SocialMediaNumberImagesOptions' },
     ];
     const VideoAudioModeOptions = [
         { value: "OneForAll", label: "One audio for all videos",name : 'VideoAudioModeOptions' },
@@ -129,12 +136,20 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const [SelectedAudioToVideoContainer,SetSelectedAudioToVideoContainer] = useState(0)
     const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
     const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
-    
+    const NotificationPlayer = useRef(null)
     const WsDataStream = useRef(null)
     const Theme = useSelector((state)=> state.auth.Theme)  
 
+    function PlayNotifiactions(props){
+        if(NotificationPlayer.current){
+            NotificationPlayer.current.volume = 0.5;
+            NotificationPlayer.current.play()
+        }
+    }
+
     useLayoutEffect(()=> {
         requestWsStream('open')
+        
         if(db != null){
             SetProfilePicturePhoto(db.ProfilePic)
             var data = {
@@ -143,6 +158,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 'AccountID' : extrainfo,
                 'IsOwner' : true,
             }
+            // PlayNotifiactions('play')
             FetchUserProfile(JSON.stringify([data]))
         }      
     },[db,extrainfo])
@@ -306,6 +322,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Transcribe complited. Generating video data. Please hold... '
             })
+            PlayNotifiactions('play')
             requestWsStream('RequestAITranscriptResponse',promptConstructed)
             // SetPostContentContainer((e)=> {
             //     return {
@@ -439,7 +456,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             neutral80: mode == "dark" ? "#ddd" : "#444", // Placeholder color
         },
     });
-    
+
     const customStyles = (mode) => ({
         control: (base) => ({
             ...base,
@@ -610,7 +627,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
        
         WsDataStream.current.onmessage = function (e) {
           var data = JSON.parse(e.data)
-          if(data.type == 'RequestAIResponse') {
+            PlayNotifiactions('play')
+            if(data.type == 'RequestAIResponse') {
                 var val = data.message
                 if (val['type'] == 'success') {
                     var Listval = val['result']
@@ -1795,7 +1813,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         const {value} = event.target
         SetSelectedtokenPathName(value)
     }
-    
+   
     const MapProfileYoutubeChannels = ProfileYoutubeChannels.map((items, i) => {
         return (
             <div key={i} className="flex flex-row group hover:bg-slate-400 dark:hover:bg-slate-700 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start gap-4 px-2 ">
@@ -1803,9 +1821,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     onChange={ToongleProfileYoutubeChannelsChange}
                     type="radio"
                     name="profileYoutubeChannels"  // common name for the group
-                    disabled={false} //{PostContentContainer.LoadingVideoList == true}
+                    //disabled={false} //{PostContentContainer.LoadingVideoList == true}
                     value={items.tokenPath}
-                    checked={items.tokenPath === SelectedtokenPathName}  // control checked state
+                    // checked={items.tokenPath === SelectedtokenPathName}  // control checked state
                     className="radio radio-info dark:radio-success shadow-xs shadow-slate-500/80 dark:shadow-slate-100/60"
                 />
                 <p className="text-sm py-1 text-slate-800 dark:text-slate-400">{items.name}</p>
@@ -1851,6 +1869,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     
                 </div>
             </div>
+            <audio ref={NotificationPlayer} loop={false} className=" hidden" src={`${import.meta.env.VITE_APP_API_URL}/media/notifications/notification.wav`} controls></audio>
+
             <section className={`  md:w-full  justify-between flex flex-col relative overflow-x-hidden overflow-y-visible w-full rounded-sm  md:mx-auto bg-transparent dark:text-slate-100 m-auto   h-full`}>
                 <small className=" text-slate-600 dark:text-slate-500 text-center" >It just takes three steps</small>
                 {/* changing <image/audio> to voice container */}

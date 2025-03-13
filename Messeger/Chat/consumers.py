@@ -944,17 +944,17 @@ def revoke_oAuth_token(emailval,token):
                     print("✅ OAuth token revoked successfully.")
                     return [True]
                 else:
-                    #os.remove(file_path)
+                    os.remove(file_path)
                     print("⚠ Failed to revoke token:", response.json())
-                    return [False,response.json()]
+                    return [True,response.json()]
             else:
-                return [False,'your connection file seams to be unreachable']
+                return [True,'your connection file seams to be unreachable']
         except Exception as e:
             print(f'\nError {e} \n occured when trying to run the revoke token function') 
             return [False,{e}]  
 
 
-# revoke_oAuth_token('kenjicladia@gmail.com','Beyond_token.json')
+# revoke_oAuth_token('kenjicladia@gmail.com','Illustrated_Storytime_token.json')
 
 
 @circuit
@@ -975,7 +975,7 @@ def RequestRevokeYoutubeConnectionFunc(email,token,tokenName):
                 return responseval
             
             RevokeStatus = revoke_oAuth_token(emailval=email,token=token)
-            #print('satus:',RevokeStatus)
+            print('satus:',RevokeStatus)
             if RevokeStatus[0] != True:
                 reasons = RevokeStatus[1] if RevokeStatus[1] else ''
                 responseval = {'type' : 'error','result' : f'Seams like this channel connection fails to disconnect, {reasons}. Try again later'}
