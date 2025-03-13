@@ -47,10 +47,10 @@ YoutubeCustomPrompt = """
     - A `snippet` object with:
         * `title` (string, 1-100 characters)
         * `description` (string, 0-5000 characters)
-        * `tags` (array of 0-500 strings, each ≤ 70 characters)
+        * `tags` (array of 0-500 strings,each >= 20 and each ≤ 70 characters)
         * `categoryId` (valid YouTube category ID string like "28")
     - A `status` object with:
-        * `privacyStatus` (ONLY "public", "private", or "unlisted")
+        * `privacyStatus` (ONLY "public")
         * `madeForKids` (boolean) true
         * `selfDeclaredMadeForKids` true
     - A `audio` object with:
@@ -70,7 +70,7 @@ YoutubeCustomPrompt = """
         "categoryId": "27"
     },
     "status": {
-        "privacyStatus": "private",
+        "privacyStatus": "public",
         "madeForKids": false,
         "selfDeclaredMadeForKids": True
     },
@@ -89,6 +89,7 @@ YoutubeCustomPrompt = """
         - Different YouTube categories
         - Varied privacyStatus values
         - Relevant tags matching the title/description
+        - A catchy title
         - Relevant images description matching their parent object description
         `;
 """
@@ -99,10 +100,10 @@ YoutubeCustomPromptForAudioToVideo = """
     - A `snippet` object with:
         * `title` (string, 1-100 characters)
         * `description` (string, 0-5000 characters)
-        * `tags` (array of 0-500 strings, each ≤ 70 characters)
+        * `tags` (array of 0-500 strings,each >= 20 and each ≤ 70 characters)
         * `categoryId` (valid YouTube category ID string like "28")
     - A `status` object with:
-        * `privacyStatus` (ONLY "public", "private", or "unlisted")
+        * `privacyStatus` (ONLY "public")
         * `madeForKids` (boolean) true
         * `selfDeclaredMadeForKids` true
     - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
@@ -120,7 +121,7 @@ YoutubeCustomPromptForAudioToVideo = """
         "categoryId": "27"
     },
     "status": {
-        "privacyStatus": "private",
+        "privacyStatus": "public",
         "madeForKids": false,
         "selfDeclaredMadeForKids": True
     }
@@ -136,6 +137,7 @@ YoutubeCustomPromptForAudioToVideo = """
         - Different YouTube categories
         - Varied privacyStatus values
         - Relevant tags matching the title/description
+        - A catchy title
         - Relevant images description matching their parent object description
         `;
 """
@@ -472,6 +474,10 @@ async def get_authenticated_service(email, credential_file_path, token_path):
                 try:
                     print("🔄 Refreshing token...")
                     await asyncio.to_thread(credentials.refresh, Request())
+                    
+                    def build_youtube_service():
+                        return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+                    youtube = await asyncio.to_thread(build_youtube_service)
                 except Exception as e:
                     print(f"⚠ Token refresh failed: {e}")
                     credentials = None
@@ -503,45 +509,45 @@ async def get_authenticated_service(email, credential_file_path, token_path):
                 # Run the blocking OAuth flow in a separate thread.
                 credentials = await asyncio.to_thread(run_oauth_flow)
 
-            # Build the YouTube service to retrieve channel info.
-            def build_youtube_service():
-                return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-            youtube = await asyncio.to_thread(build_youtube_service)
-            
-            # Retrieve channel information to get the channel title.
-            print("🔍 Retrieving YouTube channel information...")
-            channel_response = await asyncio.to_thread(
-                lambda: youtube.channels().list(part="snippet", mine=True).execute()
-            )
-            if not channel_response.get("items"):
-                raise Exception("Seams like there are no youtube channels found. Try again later")
-            channel_title = channel_response["items"][0]["snippet"]["title"]
-            print(f"Channel title retrieved: {channel_title}")
-
-            # Sanitize the channel title to use in the filename.
-            sanitized_channel_title = re.sub(r'\W+', '_', channel_title)
-            # Define new token path using the channel name.
-            folder_path = os.path.join(settings.MEDIA_ROOT,email)
-            new_token_name = f"{sanitized_channel_title}_token.json"
-            full_token_path = os.path.join(folder_path, new_token_name)
-            # remove duplicate
-            folder_exists = await asyncio.to_thread(os.path.exists, full_token_path)
-            if  folder_exists:
-                await asyncio.to_thread(os.remove, full_token_path)
+                # Build the YouTube service to retrieve channel info.
+                def build_youtube_service():
+                    return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+                youtube = await asyncio.to_thread(build_youtube_service)
                 
-            print(f"💾 Saving new token for future use at {full_token_path}")
-            async with aiofiles.open(full_token_path, 'w') as token_file:
-                await token_file.write(credentials.to_json())
-            # Update token_path if you want to refer to the new file later.
-            token_path = full_token_path
+                # Retrieve channel information to get the channel title.
+                print("🔍 Retrieving YouTube channel information...")
+                channel_response = await asyncio.to_thread(
+                    lambda: youtube.channels().list(part="snippet", mine=True).execute()
+                )
+                if not channel_response.get("items"):
+                    raise Exception("Seams like there are no youtube channels found. Try again later")
+                channel_title = channel_response["items"][0]["snippet"]["title"]
+                print(f"Channel title retrieved: {channel_title}")
 
-            # Call UpdateYoutubeChannelData asynchronously in a non-blocking way.
-            await asyncio.to_thread(
-                UpdateYoutubeChannelData,
-                email=email,
-                sanitized_channel_title=sanitized_channel_title,
-                full_token_path=new_token_name
-            )
+                # Sanitize the channel title to use in the filename.
+                sanitized_channel_title = re.sub(r'\W+', '_', channel_title)
+                # Define new token path using the channel name.
+                folder_path = os.path.join(settings.MEDIA_ROOT,email)
+                new_token_name = f"{sanitized_channel_title}_token.json"
+                full_token_path = os.path.join(folder_path, new_token_name)
+                # remove duplicate
+                folder_exists = await asyncio.to_thread(os.path.exists, full_token_path)
+                if  folder_exists:
+                    await asyncio.to_thread(os.remove, full_token_path)
+                    
+                print(f"💾 Saving new token for future use at {full_token_path}")
+                async with aiofiles.open(full_token_path, 'w') as token_file:
+                    await token_file.write(credentials.to_json())
+                # Update token_path if you want to refer to the new file later.
+                token_path = full_token_path
+
+                # Call UpdateYoutubeChannelData asynchronously in a non-blocking way.
+                await asyncio.to_thread(
+                    UpdateYoutubeChannelData,
+                    email=email,
+                    sanitized_channel_title=sanitized_channel_title,
+                    full_token_path=new_token_name
+                )
         else:
             # If valid credentials were loaded, build the YouTube service.
             def build_youtube_service():

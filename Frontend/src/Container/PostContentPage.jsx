@@ -170,6 +170,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Videos crated successfuly'
             })
+            PlayNotifiactions('play')
             setTimeout(() => {
                 SetPostContentContainer((e)=> {
                     return {
