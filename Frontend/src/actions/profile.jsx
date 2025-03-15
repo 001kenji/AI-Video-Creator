@@ -97,9 +97,14 @@ export const FetchUserProfile = (props) => async dispatch => {
             type : ProfileAboutReducer,
             payload : val[1]['ProfileAbout']
            })
+           var datachannel = val[1]['YoutubeChannels'] != null ? [{
+            "name": "New Channel",
+            "tokenPath": "token.json",
+            "DateCreated": "2025-03-12T17:28:55"
+          },...val[1]['YoutubeChannels']] : []
            dispatch({
             type : ProfileYoutubeChannelsReducer,
-            payload : val[1]['YoutubeChannels'] != null ? val[1]['YoutubeChannels'] : []
+            payload : datachannel
            })
             dispatch({
                 type : ProfileAccountReducer,

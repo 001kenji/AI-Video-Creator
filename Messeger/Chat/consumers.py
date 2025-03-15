@@ -1,6 +1,6 @@
 # chat/consumers.py
 import json,threading,datetime,aiohttp,requests, asyncio
-import redis,aiofiles,re
+import redis,aiofiles,re,textwrap,edge_tts
 from django.core.files.storage import FileSystemStorage
 import time,os,shutil,base64
 from django.conf import settings, Settings
@@ -28,7 +28,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
-
+from moviepy import AudioFileClip
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google_auth_oauthlib.flow import Flow
 from thumbnails import Thumbnail,get_thumbnail
@@ -149,6 +149,16 @@ class RetryCustomError(Exception):
         self.message = message
         super().__init__(retry, message)
 
+class RetryDownloadImageCustomError(Exception):
+    def __init__(self, retry, message):
+        self.retry = retry
+        self.message = message
+        super().__init__(retry, message)
+
+@sync_to_async
+def get_account_existance(email):
+    accountref = Account.objects.filter(email=email)
+    return accountref.exists()
 
 @asyncCircuitBreaker
 async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
@@ -189,7 +199,7 @@ async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
         return responseval
 
 @asyncCircuitBreaker
-async def RequestRequestClearServer(email):
+async def RequestRequestClearServerFunc(email):
     """Generate AI text content asynchronously."""
     try:
         folder_path = os.path.join(settings.MEDIA_ROOT, email, 'youtube')
@@ -208,50 +218,151 @@ async def RequestRequestClearServer(email):
         }
         return responseval
 
-# function to download the iamges
+
+async def Scriptize(script, audio_file_path):
+    """Asynchronously generate TTS audio."""
+    tts = edge_tts.Communicate(script, "en-KE-AsiliaNeural")
+    await tts.save(audio_file_path)  # Save the audio file asynchronously
+
+
 @asyncCircuitBreaker
-async def download_image(image_url, filename, emailval, SocialMediaType):
-    async with aiohttp.ClientSession() as session:
-        async with session.get(image_url) as response:
-            if response.status == 200:
-                
-                content = await response.read()
-                folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
-                file_path = os.path.join(folder_path, filename)
-                
-                # Check and remove existing file in a separate thread.
-                exists = await asyncio.to_thread(os.path.exists, file_path)
-                if exists:
-                    try:
-                        await asyncio.to_thread(os.remove, file_path)
-                        print(f"Existing File deleted: {file_path}")
-                    except Exception as e:
-                        print(f"Error deleting existing file {file_path}: {e}")
-                
-                # Save file using Django's FileSystemStorage offloaded to a thread.
-                def save_file():
-                    custom_storage = FileSystemStorage(location=folder_path)
-                    with custom_storage.open(filename, 'wb') as file:
-                        file.write(content)
-                await asyncio.to_thread(save_file)
-                
-                print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅")
+async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
+    """Generate AI text content asynchronously."""
+    try:
+        if not email or not data or email == 'null' or email == '' or email == 'gestuser@gmail.com':
+            responseval = {
+                'type': 'error',
+                'status': 'error',
+                'result': "Your request seams to be incomplite. Try again later"
+            }
+            return responseval
+        
+        accountref = await get_account_existance(email)
+        if not accountref:
+            responseval = {
+                'type': 'error',
+                'status': 'error',
+                'result': "This account does not exist.Login to proceed.❌"
+            }
+            return responseval
+        
+        social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
+        folder_exists = await asyncio.to_thread(os.path.exists, social_media_folder_path)
+        if not folder_exists:
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
+        else:
+            await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
+            await asyncio.to_thread(os.mkdir, social_media_folder_path)
+            
+        transcriptions = []
+        video_type_list = []
+        AudioNameList= []
+        audio_list = []
+        tasks = []
+        position = 0
+        for i in data:
+            script = i
+            words = textwrap.wrap(script, width=len(script)//NumberOfImages)
+            splited_audio_name = f'transcripted_audio_{position}'
+            filename = f'{splited_audio_name}.mp3'
+            audio_file_path = os.path.join(social_media_folder_path,filename)
+            # create audio RUN ASYNC
+            # Create and start the async task
+            task = asyncio.create_task(Scriptize(script, audio_file_path))
+            tasks.append(task)  # Store task reference
+
+            # update image dict
+            spited_position = 0
+            image_tranascipt_list = []
+            for words_parts in words:
+                print('\n\n splited file name: ',splited_audio_name)
+                image_tranascipt_list.append({
+                    "name": f'{spited_position}_{splited_audio_name}.jpg',
+                    "description": words_parts
+                })
+                spited_position += 1
+            
+            transcriptions.append(image_tranascipt_list)
+            custom_audio_file_path = f'{email}/{SocialMediaType}/{filename}'
+            audio_list.append(custom_audio_file_path)
+            AudioNameList.append(filename)
+            position += 1
+
+        # Wait for all audio processing tasks to complete concurrently
+        await asyncio.gather(*tasks)
+
+        for i in data:
+            #check duration 
+            audio_clip = AudioFileClip(audio_file_path)
+            audio_duration = audio_clip.duration  # Get duration in seconds
+            videoType = 'shorts' if int(audio_duration) <= 60 else 'video'
+            video_type_list.append(videoType)
+            audio_clip.close()            
+
+            
+        responseval = {'type': 'success', 'result': 'Scripts converted successfully','ImageList' : transcriptions,'VideoTypeList':video_type_list,'AudioList':audio_list,'AudioNameList' :AudioNameList}
+        return responseval
+    except Exception as e:
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': "It seems there is an issue while processing your request. That shouldn't worry you"
+        }
+        return responseval
+
+@asyncCircuitBreaker
+async def download_image(image_url, filename, emailval, SocialMediaType, retries=3, delay=2):
+    # You can create a persistent session outside of this function if needed.
+    for attempt in range(retries):
+        try:
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+                async with session.get(image_url) as response:
+                    if response.status == 200:
+                        content = await response.read()
+                        folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
+                        file_path = os.path.join(folder_path, filename)
+                        
+                        # Check and remove existing file in a separate thread.
+                        exists = await asyncio.to_thread(os.path.exists, file_path)
+                        if exists:
+                            try:
+                                await asyncio.to_thread(os.remove, file_path)
+                                print(f"Existing File deleted: {file_path}")
+                            except Exception as e:
+                                print(f"Error deleting existing file {file_path}: {e}")
+                        
+                        # Save file using Django's FileSystemStorage offloaded to a thread.
+                        def save_file():
+                            custom_storage = FileSystemStorage(location=folder_path)
+                            with custom_storage.open(filename, 'wb') as file:
+                                file.write(content)
+                        await asyncio.to_thread(save_file)
+                        
+                        print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅")
+                        return filename
+                    else:
+                        error_msg = f"An error occurred when downloading your images {response.status} - {response.reason} ❌"
+                        print(f"\n\nFailed to download {filename} - {response.reason} ❌")
+                        raise RetryDownloadImageCustomError("retry", error_msg)
+        except RetryDownloadImageCustomError as e:
+            print(f"Attempt {attempt + 1} failed with error: {e}")
+            if attempt < retries - 1:
+                await asyncio.sleep(delay * (2 ** attempt))  # Exponential backoff.
             else:
-                print(f"\n\nFailed to download {filename} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
-                raise RetryCustomError("retry", "An error occurred when downloading your images❌")
+                print(f"\n\nFailed to download {filename} - {response.reason} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
+                raise Exception(f"An error occurred when downloading your images {response.status} - {response.reason} ❌")
                 
-    return filename
-
 
 @asyncCircuitBreaker
-async def generate_image_async(description, title):
+async def generate_image_async(description, title,widthval = 1080,heightval = 1920 ):
     try:
         # Create an asynchronous pollinations image model.
         image_model = pollinationsAi.Async.Image(
             model=pollinationsAi.Image.flux(),
             seed="random",
-            width=1024,
-            height=1024,
+            width=widthval,
+            height=heightval,
             enhance=False,
             nologo=True,
             private=True,
@@ -267,7 +378,7 @@ async def generate_image_async(description, title):
 
 
 @asyncCircuitBreaker
-async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequestRetry,VideosType):
     """Generate AI images content asynchronously."""
     try:
         dataval = prompt
@@ -284,14 +395,18 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
         loopval = 0
         for items in dataval:
             objectval = items.get("ImageList", [])
+            videoType = VideosType
+           
             i = 0
             for objectval_items in objectval:
+                widthval = 1080 if videoType == 'shorts' else 1920
+                heightval = 1920 if videoType == 'shorts' else 1080 
                 print(f'\n\n{i} - {objectval_items}\n\n')           
                 title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
                 # Image details
                 ImageDescription = objectval_items.get("description", "A beautiful natural scene")
-                width = 1024
-                height = 1024
+                width = widthval  #1024
+                height = heightval #1024
                 seed = 42  # Each seed generates a new image variation
                 model = 'flux'  # Using 'flux' as default if model is not provided
 
@@ -300,7 +415,7 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
                 
 
                 # Generate image asynchronously.
-                await generate_image_async(ImageDescription, title)
+                await generate_image_async(ImageDescription, title,widthval,heightval)
                 # Download the generated image.
                 await download_image(API_image_url, title, email, SocialMediaType)
                 
@@ -335,7 +450,8 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
         responseval = {
             'type': 'error',
             'status': 'error',
-            'result': 'It seems there is an issue with your request. Try again later'
+            'result': f'It seems there is an issue with your request: {e}. Try again later',
+            'data' : dataval[:loopval]
         }
         return responseval
 
@@ -350,18 +466,24 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,Numbe
         loopval = 0
         for items in dataval:
             objectval = items.get("ImageList", [])
+            videoType_list = items.get("videoType", 'shorts')
+            videoType = videoType_list
             i = 0
             for objectval_items in objectval:
+                
+                widthval = 1080 if videoType == 'shorts' else 1920
+                heightval = 1920 if videoType == 'shorts' else 1080 
+                print('videotype: ',videoType)
                 print(f'\n\n{i} - {objectval_items}\n\n')           
                 title = objectval_items.get("name", f'{i}_{email}')  # Fallback title  
                 ImageDescription = objectval_items.get("description", "A beautiful natural scene")
-                width = 1024
-                height = 1024
+                width = widthval  #1024
+                height = heightval #1024
                 seed = 42
                 model = 'flux'
                 API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
                 
-                await generate_image_async(ImageDescription, title)
+                await generate_image_async(ImageDescription, title,widthval,heightval)
                 await download_image(API_image_url, title, email, SocialMediaType)
                 storage_name = f'{email}/{SocialMediaType}/{title}'
                 print(f'\n\nAt object {loopval} generated {title}')
@@ -393,7 +515,8 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,Numbe
         responseval = {
             'type': 'error',
             'status': 'error',
-            'result': 'It seems there is an issue with your request. Try again later'
+            'result': f'It seems there is an issue with your request {e}. Try again later',
+            'data' : dataval[:loopval]
         }
         return responseval
 
@@ -475,9 +598,9 @@ async def get_authenticated_service(email, credential_file_path, token_path):
                     print("🔄 Refreshing token...")
                     await asyncio.to_thread(credentials.refresh, Request())
                     
-                    def build_youtube_service():
-                        return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-                    youtube = await asyncio.to_thread(build_youtube_service)
+                    # def build_youtube_service():
+                    #     return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+                    # youtube = await asyncio.to_thread(build_youtube_service)
                 except Exception as e:
                     print(f"⚠ Token refresh failed: {e}")
                     credentials = None
@@ -509,45 +632,45 @@ async def get_authenticated_service(email, credential_file_path, token_path):
                 # Run the blocking OAuth flow in a separate thread.
                 credentials = await asyncio.to_thread(run_oauth_flow)
 
-                # Build the YouTube service to retrieve channel info.
-                def build_youtube_service():
-                    return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
-                youtube = await asyncio.to_thread(build_youtube_service)
+            # Build the YouTube service to retrieve channel info.
+            def build_youtube_service():
+                return googleapiclient.discovery.build("youtube", "v3", credentials=credentials)
+            youtube = await asyncio.to_thread(build_youtube_service)
+            
+            # Retrieve channel information to get the channel title.
+            print("🔍 Retrieving YouTube channel information...")
+            channel_response = await asyncio.to_thread(
+                lambda: youtube.channels().list(part="snippet", mine=True).execute()
+            )
+            if not channel_response.get("items"):
+                raise Exception("Seams like there are no youtube channels found. Try again later")
+            channel_title = channel_response["items"][0]["snippet"]["title"]
+            print(f"Channel title retrieved: {channel_title}")
+
+            # Sanitize the channel title to use in the filename.
+            sanitized_channel_title = re.sub(r'\W+', '_', channel_title)
+            # Define new token path using the channel name.
+            folder_path = os.path.join(settings.MEDIA_ROOT,email)
+            new_token_name = f"{sanitized_channel_title}_token.json"
+            full_token_path = os.path.join(folder_path, new_token_name)
+            # remove duplicate
+            folder_exists = await asyncio.to_thread(os.path.exists, full_token_path)
+            if  folder_exists:
+                await asyncio.to_thread(os.remove, full_token_path)
                 
-                # Retrieve channel information to get the channel title.
-                print("🔍 Retrieving YouTube channel information...")
-                channel_response = await asyncio.to_thread(
-                    lambda: youtube.channels().list(part="snippet", mine=True).execute()
-                )
-                if not channel_response.get("items"):
-                    raise Exception("Seams like there are no youtube channels found. Try again later")
-                channel_title = channel_response["items"][0]["snippet"]["title"]
-                print(f"Channel title retrieved: {channel_title}")
+            print(f"💾 Saving new token for future use at {full_token_path}")
+            async with aiofiles.open(full_token_path, 'w') as token_file:
+                await token_file.write(credentials.to_json())
+            # Update token_path if you want to refer to the new file later.
+            token_path = full_token_path
 
-                # Sanitize the channel title to use in the filename.
-                sanitized_channel_title = re.sub(r'\W+', '_', channel_title)
-                # Define new token path using the channel name.
-                folder_path = os.path.join(settings.MEDIA_ROOT,email)
-                new_token_name = f"{sanitized_channel_title}_token.json"
-                full_token_path = os.path.join(folder_path, new_token_name)
-                # remove duplicate
-                folder_exists = await asyncio.to_thread(os.path.exists, full_token_path)
-                if  folder_exists:
-                    await asyncio.to_thread(os.remove, full_token_path)
-                    
-                print(f"💾 Saving new token for future use at {full_token_path}")
-                async with aiofiles.open(full_token_path, 'w') as token_file:
-                    await token_file.write(credentials.to_json())
-                # Update token_path if you want to refer to the new file later.
-                token_path = full_token_path
-
-                # Call UpdateYoutubeChannelData asynchronously in a non-blocking way.
-                await asyncio.to_thread(
-                    UpdateYoutubeChannelData,
-                    email=email,
-                    sanitized_channel_title=sanitized_channel_title,
-                    full_token_path=new_token_name
-                )
+            # Call UpdateYoutubeChannelData asynchronously in a non-blocking way.
+            await asyncio.to_thread(
+                UpdateYoutubeChannelData,
+                email=email,
+                sanitized_channel_title=sanitized_channel_title,
+                full_token_path=new_token_name
+            )
         else:
             # If valid credentials were loaded, build the YouTube service.
             def build_youtube_service():
@@ -629,7 +752,7 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
             # Execute async upload
             response = await asyncio.to_thread(insert_request.execute)
             def execute_request():
-                print('uploading starts: ')
+                print(f'uploading starts: {position}')
                 response = None
                 while response is None:
                     status, response = insert_request.next_chunk()
@@ -962,7 +1085,6 @@ def revoke_oAuth_token(emailval,token):
 
 # revoke_oAuth_token('kenjicladia@gmail.com','Illustrated_Storytime_token.json')
 
-
 @circuit
 @sync_to_async
 def RequestRevokeYoutubeConnectionFunc(email,token,tokenName):
@@ -1040,6 +1162,7 @@ class AIConsumer(AsyncWebsocketConsumer):
             pass  # Ignore cancellation errors
         finally:
             self.tasks.clear()
+
     async def send_msg(self, data,type,online = None):
         
         await self.send(
@@ -1078,13 +1201,25 @@ class AIConsumer(AsyncWebsocketConsumer):
                 task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email,NumberOfRequestRetry))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestAITTSResponse'):
+                email = sanitize_string(text_data_json['email'])
+                promptConstructed = text_data_json['prompt']
+                numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
+                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
+                # Track the task
+                task = asyncio.create_task(self.handle_request_ai_tts(prompt, email,NumberOfRequestRetry))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImages'):
                 email = sanitize_string(text_data_json['email'])
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                VideosType = sanitize_string(text_data_json['VideosType'])
                 NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,NumberOfRequestRetry,VideosType))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImagesTranscript'):
@@ -1114,6 +1249,15 @@ class AIConsumer(AsyncWebsocketConsumer):
                 task = asyncio.create_task(self.handle_request_clear_server(email))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestTextToSpeech'):
+                email = sanitize_string(text_data_json['email'])
+                SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
+                data = text_data_json['Data']
+                NumberOfImages = int(sanitize_string(text_data_json['NumberOfImages']))
+                # Track the task
+                task = asyncio.create_task(self.handle_request_text_to_speech(email,data,NumberOfImages,SocialMediaType))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
 
     async def handle_request_ai_response(self, prompt, email,NumberOfRequestRetry):
         val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
@@ -1121,11 +1265,17 @@ class AIConsumer(AsyncWebsocketConsumer):
     async def handle_request_ai_transcript_response(self, prompt, email,NumberOfRequestRetry):
         val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
         await self.send_msg(data=val, type='RequestAITranscriptResponse')
+    async def handle_request_ai_tts(self, prompt, email,NumberOfRequestRetry):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+        await self.send_msg(data=val, type='RequestAITTSResponse')
     async def handle_request_clear_server(self, email):
-        val = await RequestRequestClearServer(email=email)
+        val = await RequestRequestClearServerFunc(email=email)
         await self.send_msg(data=val, type='RequestClearServer')
-    async def handle_request_create_images(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
-        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_text_to_speech(self, email,data,NumberOfImages,SocialMediaType):
+        val = await RequestTextToSpeechFunc(email=email,data=data,NumberOfImages=NumberOfImages,SocialMediaType=SocialMediaType)
+        await self.send_msg(data=val, type='RequestTextToSpeech')
+    async def handle_request_create_images(self, prompt, email,SocialMediaType,NumberOfRequestRetry,VideosType):
+        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry,VideosType=VideosType)
         await self.send_msg(data=val, type='RequestCreateImages')
     async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
         val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
@@ -1229,4 +1379,4 @@ class ChatList(AsyncWebsocketConsumer):
                 tokenName = sanitize_string(text_data_json['tokenName'])
                 val = await RequestRevokeYoutubeConnectionFunc(email=email,token=token,tokenName=tokenName)
                 await self.send_msg(data=val,type='RequestRevokeYoutubeConnection') 
-   
+                

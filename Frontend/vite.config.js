@@ -15,7 +15,7 @@ import tailwindcss from '@tailwindcss/vite'
 //     react(),    
 //   ],
 //   server: {
-//     host: '192.168.100.4', //"192.168.100.4", // Use your Wi‑Fi IP or use "0.0.0.0" (or true) to listen on all interfaces
+//     host: '0.0.0.0', //"192.168.56.1", // Use your Wi‑Fi IP or use "0.0.0.0" (or true) to listen on all interfaces
 //     // Optional: define the port if needed
 //     port: 5173,
 //     cors: {

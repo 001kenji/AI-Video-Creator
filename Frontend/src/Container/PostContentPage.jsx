@@ -16,11 +16,14 @@ import { LuCornerUpRight, LuGithub } from "react-icons/lu";
 import { lineNumbers } from "@codemirror/view";
 import { connect, useDispatch } from "react-redux";
 import {useSelector} from 'react-redux'
+import { IoTrashOutline } from "react-icons/io5";
 import "react-quill/dist/quill.snow.css";
 import {  toast } from 'react-toastify';
 import 'react-quill/dist/quill.snow.css';
 import { MdOutlineAdd } from "react-icons/md";
 import 'react-quill/dist/quill.snow.css';
+import { Player } from 'video-react';
+import "video-react/dist/video-react.css";
 import Select from "react-select";
 // lottieflow animated icons 
 import ProfileTestImg from '../assets/images/fallback.jpeg'
@@ -34,7 +37,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const {register,formState,reset,getValues,setValue,watch} = useForm({
         defaultValues : {
             'AIprompt' : '',
-            'ClearServer' : false         
+            'ClearServer' : false,
+            'TextSpeech' : ''         
         },
         mode : 'all'
     })
@@ -58,6 +62,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const FullAudioToVideoTranscription = useSelector((state) => state.AiReducer.FullAudioToVideoTranscription)
     const AudioToVideoTranscriptionStatus = useSelector((state) => state.AiReducer.AudioToVideoTranscriptionStatus)
     const RetryRequestScope = useSelector((state) => state.AiReducer.RetryRequestScope)
+    const AudioToVideovideoTypeList = useSelector((state) => state.AiReducer.AudioToVideovideoType)
     const ProgressInformation = useSelector((state) => state.AiReducer.ProgressInformation)
     const RetryNumberOfRequestMade = useSelector((state) => state.AiReducer.RetryNumberOfRequestMade)
     const RetryRequestThrottled = useSelector((state) => state.AiReducer.RetryRequestThrottled)
@@ -71,29 +76,136 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const AiAudioToVoiceRef = useRef(null)
     const [AudioToVideoContainer,SetAudioToVideoContainer] = useState({
         'audioFiles' : [],
-        'ShowAudioToVideoContainer' : false
+        'AudioNameList' : [],
+        'TextToSpeechAudioList': [],
+        'ShowAudioToVideoContainer' : false,
+        'Scope' : '', // TextToSpeech //AudioUpload,
+        'TextToSpeechScope' : 'Scripting', //Previewing //Scripting
+        'Scripts' : [],
+        'ImageList' : [],
+        'VideoTypeList' : [],
     })
     const [PostContentContainer,SetPostContentContainer] = useState({
-        'FirstStepLevel' : 1,
-        'SecondStepLevel' : 1,
+        'FirstStepLevel' : 2,
+        'SecondStepLevel' : 2,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 3,
+        'progressLevel' : 2,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
+        'AudioUploadScope' : '',
         'SelectedSocialMediaType' : 'youtube',
         'MaximumSocialMediaSelected' : 1,
         'ModeValue' : 'AI',
         'SocialMediaNumberVideosOptions' : [],
+        'SocialMediaVideosTypeOptions' : [
+            {
+                label: "Youtube shorts",
+            name
+            : 
+            "SocialMediaVideosTypeOptions",
+            value
+            : 
+            "shorts"}],
         'SocialMediaNumberImagesOptions' : [],
         'VideoAudioModeOptions' : [],
         'VideoAudioModeSelectedOptions' : [],
-        'VideoListDetails' : ``,
+        'VideoListDetails' : `[
+  {
+    "snippet": {
+      "title": "Majestic Eagles in Flight",
+      "description": "Witness the breathtaking power and grace of eagles soaring through the skies.  This video captures stunning footage of bald eagles, golden eagles, and other majestic eagle species in their natural habitats. Explore their hunting techniques, aerial acrobatics, and family life.",
+      "tags": [
+        "Bald Eagle",
+        "Golden Eagle",
+        "Eagle Flight",
+        "Wildlife Documentary",
+        "Nature Photography",
+        "Birds of Prey",
+        "Majestic Eagles",
+        "Aerial Views",
+        "Conservation",
+        "Wildlife Conservation",
+        "Endangered Species",
+        "Raptor",
+        "Eagle Hunting",
+        "National Geographic",
+        "Animal Planet",
+        "Documentary Film",
+        "Nature Documentary",
+        "Birds of North America",
+        "Birds of the World",
+        "Stunning Nature",
+        "Breathtaking Scenery"
+      ],
+      "categoryId": "22"
+    },
+    "status": {
+      "privacyStatus": "public",
+      "madeForKids": true,
+      "selfDeclaredMadeForKids": true
+    },
+    "audio": {
+      "script": "Open on a majestic bald eagle soaring high above a pristine mountain range.  The wind whistles past its powerful wings.  Narrator:  Eagles, symbols of freedom and power, dominate the skies.  We'll witness their breathtaking hunting techniques, their intricate family structures, and the challenges they face in the wild.  (Sound of eagle cries, wind, soaring music).  Close up shot of an eagle's eye. Narrator:  With exceptional eyesight, they spot prey from incredible distances.  (Footage of an eagle diving to catch a fish).  Narrator:  Their aerial acrobatics are awe-inspiring, a testament to their evolutionary prowess.  (Montage of various eagle species in flight, hunting, feeding their young).  Narrator:  But their survival is threatened by habitat loss and human encroachment.  Conservation efforts are crucial to protecting these magnificent birds for generations to come. (Show footage of conservationists working, close up of eagle chicks).  Narrator:  Let's celebrate the beauty and power of these majestic creatures and work together to ensure their future."
+    },
+    "ImageList": [
+      {
+        "name": "eagle_soaring.jpg",
+        "description": "A breathtaking image of a bald eagle soaring high above a mountain range, showcasing its powerful wings and majestic presence."
+      }
+    ]
+  }
+]`,
         'SelectedAudioClassificationOptions' : [],
-        'VideoListDetailsWithImages' : [],
+        'VideoListDetailsWithImages' :[
+            {
+              "snippet": {
+                "title": "Majestic Eagles in Flight",
+                "description": "Witness the breathtaking power and grace of eagles soaring through the skies.  This video captures stunning footage of bald eagles, golden eagles, and other majestic eagle species in their natural habitats. Explore their hunting techniques, aerial acrobatics, and family life.",
+                "tags": [
+                  "Bald Eagle",
+                  "Golden Eagle",
+                  "Eagle Flight",
+                  "Wildlife Documentary",
+                  "Nature Photography",
+                  "Birds of Prey",
+                  "Majestic Eagles",
+                  "Aerial Views",
+                  "Conservation",
+                  "Wildlife Conservation",
+                  "Endangered Species",
+                  "Raptor",
+                  "Eagle Hunting",
+                  "National Geographic",
+                  "Animal Planet",
+                  "Documentary Film",
+                  "Nature Documentary",
+                  "Birds of North America",
+                  "Birds of the World",
+                  "Stunning Nature",
+                  "Breathtaking Scenery"
+                ],
+                "categoryId": "22"
+              },
+              "status": {
+                "privacyStatus": "public",
+                "madeForKids": true,
+                "selfDeclaredMadeForKids": true
+              },
+              "audio": {
+                "script": "Open on a majestic bald eagle soaring high above a pristine mountain range.  The wind whistles past its powerful wings.  Narrator:  Eagles, symbols of freedom and power, dominate the skies.  We'll witness their breathtaking hunting techniques, their intricate family structures, and the challenges they face in the wild.  (Sound of eagle cries, wind, soaring music).  Close up shot of an eagle's eye. Narrator:  With exceptional eyesight, they spot prey from incredible distances.  (Footage of an eagle diving to catch a fish).  Narrator:  Their aerial acrobatics are awe-inspiring, a testament to their evolutionary prowess.  (Montage of various eagle species in flight, hunting, feeding their young).  Narrator:  But their survival is threatened by habitat loss and human encroachment.  Conservation efforts are crucial to protecting these magnificent birds for generations to come. (Show footage of conservationists working, close up of eagle chicks).  Narrator:  Let's celebrate the beauty and power of these majestic creatures and work together to ensure their future."
+              },
+              "ImageList": [
+                {
+                  "name": "eagle_soaring.jpg",
+                  "description": "A breathtaking image of a bald eagle soaring high above a mountain range, showcasing its powerful wings and majestic presence."
+                }
+              ]
+            }
+          ],
         'UploadedVideoId' : [],
         'ClearServer' : true
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
+    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -105,6 +217,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         { value: "8", label: "8 videos",name : 'SocialMediaNumberVideosOptions' },
         { value: "9", label: "9 videos",name : 'SocialMediaNumberVideosOptions' },
         { value: "10", label: "10 videos",name : 'SocialMediaNumberVideosOptions' },
+    ];
+ 
+    const SocialMediaVideosTypeOptions = [
+        { value: "shorts", label: "Youtube shorts",name : 'SocialMediaVideosTypeOptions' },
+        { value: "video", label: "Youtube video",name : 'SocialMediaVideosTypeOptions' },
     ];
     const SocialMediaNumberImagesOptions = [
         { value: "1", label: "1 image",name : 'SocialMediaNumberImagesOptions' },
@@ -127,19 +244,32 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         { value: "OneForAll", label: "One audio for all videos",name : 'VideoAudioModeOptions' },
         { value: "AllForAll", label: "Each audio for videos",name : 'VideoAudioModeOptions' },
     ];
-    
+    const [handleTextToSpeechInput,SethandleTextToSpeechInput] = useState('')
    const [DisableMergeButton,SetDisableMergeButton] = useState(true)
     const [SelectedVideoImageCarousel,SetSelectedVideoImageCarousel] = useState(0)
     const [SelectedVideoScriptCarousel,SetSelectedVideoScriptCarousel] = useState(0)
+    const [SelectedTextToSpeechCarousel,SetSelectedTextToSpeechCarousel] = useState(0)
     const [SelectedVideoYoutubeIdCarousel,SetSelectedVideoYoutubeIdCarousel] = useState(0)
     const [SelectedVideoAudioUploadContainer,SetSelectedVideoAudioUploadContainer] = useState(0)
     const [SelectedAudioToVideoContainer,SetSelectedAudioToVideoContainer] = useState(0)
+    const [SelectedTextToSpeechAudioList,SetSelectedTextToSpeechAudioList] = useState(0)
     const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
     const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
     const NotificationPlayer = useRef(null)
     const WsDataStream = useRef(null)
     const Theme = useSelector((state)=> state.auth.Theme)  
-
+    // Determine the fixed height based on the current carousel type
+    const currentCarousel = PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel];
+    const currentImagType = AiPageSelected === 'ImageToVideo'
+        ? PostContentContainer.SocialMediaVideosTypeOptions[0] ?PostContentContainer.SocialMediaVideosTypeOptions[0].value : 'shorts'
+        : currentCarousel ? currentCarousel.videoType : 'shorts';
+    
+    // Set the outer container height based on the type.
+    const currentContainerHeight = currentImagType === 'shorts' ? 'h-[520px] max-h-[520px]' : 'h-[280px] max-h-[280px]';
+    const currentContainerHeightContainer = currentImagType === 'shorts' ? 'h-[500px] max-h-[500px]' : 'h-[250px] max-h-[250px]';
+    const currentContainerHeightVideoContainer = currentImagType === 'shorts' ? 'h-[600px] max-h-[600px] max-w-[320px]' : 'h-[280px] max-h-[280px] max-w-[350px] ';
+    
+  
     function PlayNotifiactions(props){
         if(NotificationPlayer.current){
             NotificationPlayer.current.volume = 0.5;
@@ -164,12 +294,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     },[db,extrainfo])
  
     useEffect(() => {
-        
         if (AiVideoMergeUrl.length != 0){
             dispatch({
                 type :ProgressInformationReducer,
                 payload : 'Videos crated successfuly'
             })
+            SetSelectedVideoImageCarousel(0)
             PlayNotifiactions('play')
             setTimeout(() => {
                 SetPostContentContainer((e)=> {
@@ -206,7 +336,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }, 4000);
         }else if(RetryRequestScope == 'MergeAudioToVideoRetry' && AiVideoMergeUrl.length == 0 ){
             if(RetryNumberOfRequestMade < 3) {
-                console.log('trigger request throttled')
+                //console.log('trigger request throttled')
                 SetPostContentContainer((e)=> {
                     return {
                         ...e,
@@ -295,6 +425,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
                 var num = Number(RetryNumberOfRequestMade) + 1
                 formData.append('NumberOfRequestRetry',num)
+                formData.append('VideosType',PostContentContainer.SocialMediaVideosTypeOptions[0].value)
                 dispatch({
                     type :ProgressInformationReducer,
                     payload : `${ProgressInformation}. No of retries ${num}/${MaximumRetryNumber}`
@@ -309,6 +440,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     },[RetryRequestScope,RetryNumberOfRequestMade])
 
     useEffect(() => {
+        
         //console.log('changes detected: ',AudioToVideoTranscription.length)
         if (AudioToVideoTranscription.length != 0){
             // send request for ai body data
@@ -316,7 +448,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             var lengthval = AudioToVideoContainer.audioFiles.length
             var promptConstructed = {
                 'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                'prompt' : ` Generate an array of strictly ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
+                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object . each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
                
             }
             dispatch({
@@ -324,15 +456,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 payload : 'Transcribe complited. Generating video data. Please hold... '
             })
             PlayNotifiactions('play')
+            //console.log('transcribing now')
             requestWsStream('RequestAITranscriptResponse',promptConstructed)
-            // SetPostContentContainer((e)=> {
-            //     return {
-            //         ...e,
-            //         'FirstStepLevel' : 2,
-            //         'progressLevel' : 1,
-            //         'LoadingVideoList' : false
-            //     }
-            // })
+            
             
         }
         if(AudioToVideoTranscriptionStatus == 'failed'){
@@ -586,6 +712,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 src: URL.createObjectURL(file),
                 file : file
             }));
+           
             
                 SetAudioToVideoContainer((e) => {
                 return {
@@ -619,7 +746,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
 
         }
          if(msg == 'close'){
-            
             if(WsDataStream.current != null ){
                 WsDataStream.current.close(1000,'usefull eminent')
 
@@ -723,7 +849,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 for (let i = 0; i < Listval.length; i++) {
                     Listval[i]['ImageList'] = AudioToVideoTranscription[i]
                     Listval[i]['audio'] = AudioToVideoContainer.audioFiles[i].name
-                    
+                    Listval[i]['videoType'] = AudioToVideovideoTypeList[i] ? AudioToVideovideoTypeList[i] : 'shorts'
                 }
                 var videoList = JSON.stringify(Listval , null, 2);
                 dispatch({
@@ -790,6 +916,93 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 ShowToast(val['type'],val['result'])
             }
 
+            }else if(data.type == 'RequestAITTSResponse') {
+                var val = data.message
+                if (val['type'] == 'success') {
+                    var Listval = val['result']
+                    if(Listval.length != AudioToVideoContainer.ImageList.length){
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        console.log('mismatch',Listval,AudioToVideoContainer.ImageList)
+                        ShowToast('warning',"Seams there is no cosistensy between transcripts and videos")
+                        return
+                    }
+                    for (let i = 0; i < Listval.length; i++) {
+                        Listval[i]['ImageList'] = AudioToVideoContainer.ImageList[i]
+                        Listval[i]['audio'] = AudioToVideoContainer.AudioNameList[i]
+                        Listval[i]['videoType'] = AudioToVideoContainer.VideoTypeList[i] ? AudioToVideoContainer.VideoTypeList[i] : 'shorts'
+                    }
+                    var videoList = JSON.stringify(Listval , null, 2);
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : 'Data generated. '
+                    })
+                    setTimeout(() => {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'VideoListDetails' : videoList,
+                                'LoadingVideoList' : false,
+                                'FirstStepLevel' : 2,
+                                'progressLevel' : 1,
+                            }
+                        })
+                    }, 2000);
+                    
+                }else if (val['type'] == 'retry'){
+                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
+                    var nextNum = Number(NumberOfRequestRetry) + 1
+                    if(NumberOfRequestRetry < MaximumRetryNumber){
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
+                        })
+                        
+                        var promptConstructed = {
+                            'socialMedia' : PostContentContainer.SelectedSocialMediaType,
+                            'prompt' : ` Generate an array of strictly ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
+                           
+                        }
+                        setTimeout(() => {
+                            requestWsStream('RequestAITranscriptResponse',promptConstructed,nextNum)
+                        }, 4000);
+                    }else {
+                        console.log(NumberOfRequestRetry)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Maximum number of retry reached. Try again later'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 1,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                        }, 4000);
+                    }
+                    
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'LoadingVideoList' : false,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' : 1,
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+    
             }else if(data.type == 'RequestCreateImages'){
                 var val = data.message
                 if (val['type'] == 'success') {
@@ -1000,6 +1213,59 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }else if(data.type == 'RequestClearServer'){
                 var val = data.message
                 ShowToast(val['type'],val['result'])
+            }else if(data.type == 'RequestTextToSpeech'){
+                var val = data.message
+                if (val['type'] == 'success') {
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : 'Successfuly generated audio'
+                    })
+                    setTimeout(() => {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        SetAudioToVideoContainer((e) => {
+                            return {
+                                ...e,
+                                'TextToSpeechScope' : 'Previewing',
+                                'AudioNameList' : val['AudioNameList'],
+                                'ImageList' : val['ImageList'],
+                                'VideoTypeList' : val['VideoTypeList'],
+                                'TextToSpeechAudioList' : val['AudioList'],
+                                'Scope' : 'TextToSpeech'
+                            }
+                        })
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : ''
+                        })
+                    }, 2000);
+                    
+                }else if (val['type'] == 'error') {
+                    SetPostContentContainer((e)=> {
+                        return {
+                            ...e,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' :  1,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                    SetAudioToVideoContainer((e) => {
+                        return {
+                            ...e,
+                            'TextToSpeechScope' : 'Scripting',
+                            'Scripts' : [],
+                            'TextToSpeechAudioList' : [],
+                            'Scope' : 'TextToSpeech'
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
             }
         };
         WsDataStream.current.onopen = (e) => {
@@ -1010,6 +1276,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : false
                 }
             })
+            
         }
         WsDataStream.current.onclose = function (e) {
           
@@ -1037,6 +1304,17 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'NumberOfRequestRetry' : NumberOfRequestRetry
                     })
                 )
+            }else if(msg == 'RequestAITTSResponse') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestAITTSResponse',
+                        'email' : UserEmail,
+                        'prompt' : body,
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'NumberOfRequestRetry' : NumberOfRequestRetry
+                    })
+                )
             }else if(msg == 'RequestCreateImages') {
                 
                 WsDataStream.current.send(
@@ -1045,7 +1323,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'email' : UserEmail,
                         'prompt' : PostContentContainer.VideoListDetails,
                         'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
+                        'NumberOfRequestRetry' : NumberOfRequestRetry,
+                        'VideosType' : PostContentContainer.SocialMediaVideosTypeOptions[0].value
                     })
                 )
             }else if(msg == 'RequestCreateImagesTranscript') {
@@ -1079,6 +1358,17 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'message' : 'RequestClearServer',
                         'email' : UserEmail,
                         'NumberOfRequestRetry' : NumberOfRequestRetry
+                    })
+                )
+            }else if(msg == 'RequestTextToSpeech') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestTextToSpeech',
+                        'email' : UserEmail,
+                        'Data' : AudioToVideoContainer.Scripts,
+                        'NumberOfImages':PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'SocialMediaType':PostContentContainer.SelectedSocialMediaType
                     })
                 )
             }
@@ -1213,7 +1503,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             type :RetryNumberOfRequestMadeReducer,
             payload : 0
         })
+        if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
+            ShowToast('warning','Login to proceed')
+            return
+        }
+       
         if(props == 'Create'){
+            if(PostContentContainer.SocialMediaVideosTypeOptions.length == 0){
+                ShowToast('warning','Select type of youtube video')
+                return
+            }
             SetPostContentContainer((e)=> {
                 return {
                     ...e,
@@ -1244,7 +1543,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
             requestWsStream('RequestCreateImagesTranscript')
         }else if(props == 'Merge'){
-            if(PostContentContainer.VideoAudioModeSelectedOptions == ''){
+            if(PostContentContainer.SocialMediaVideosTypeOptions.length == 0){
+                ShowToast('warning','Select type of youtube video')
+                return
+            }
+            if(PostContentContainer.VideoAudioModeSelectedOptions == '' && PostContentContainer.AudioUploadScope == 'AudioUpload'){
                 ShowToast('warning','Seams like you haven\'t selected audio mode')
                 return
             }
@@ -1259,20 +1562,29 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }
             })
             const formData = new FormData()
-            if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
-                formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
-                formData.append('audio',OneForAllAudioUpload.file)
-                formData.append('audioName',OneForAllAudioUpload.Name)
-            }else if(PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll'){
-                formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
-                AudioUpload.forEach((audio, index) => {
-                    formData.append(`audio`, audio.file);
+            if(PostContentContainer.AudioUploadScope == 'AudioUpload'){
+                if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
+                    formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                    formData.append('audio',OneForAllAudioUpload.file)
+                    formData.append('audioName',OneForAllAudioUpload.Name)
+                }else if(PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll'){
+                    formData.append('AudioScope', PostContentContainer.VideoAudioModeSelectedOptions)
+                    AudioUpload.forEach((audio, index) => {
+                        formData.append(`audio`, audio.file);
+                    });
+                }
+            }else if(PostContentContainer.AudioUploadScope == 'TextToSpeech'){
+                formData.append('AudioScope', 'TextToSpeech')
+                PostContentContainer.VideoListDetailsWithImages.forEach((items, index) => {
+                    formData.append(`audio`, items.audio.script);
                 });
             }
+            
             formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
             formData.append('NumberOfRequestRetry',0)
+            formData.append('VideosType',PostContentContainer.SocialMediaVideosTypeOptions[0].value)
             dispatch({
                 type :ProgressInformationReducer,
                 payload : 'Merging data to video(s). Once created they will be saved'
@@ -1311,6 +1623,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         }
     }
     function ToongleThirdProgressLevel(props) {
+        if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
+            ShowToast('warning','Login to proceed')
+            return
+        }
         if(props == 'Upload'){
             if(AiVideoMergeUrl.length == 0){
                 ShowToast('warning','Your video url seams to be empty')
@@ -1508,6 +1824,28 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
            
         }
     }
+    function ScrollTextToSpeechCarousel (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(AudioToVideoContainer.Scripts){
+                if (SelectedTextToSpeechCarousel === 0) {
+                    SetSelectedTextToSpeechCarousel(AudioToVideoContainer.Scripts.length - 1)
+                } else {
+                    SetSelectedTextToSpeechCarousel((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(AudioToVideoContainer.Scripts){
+                if (SelectedTextToSpeechCarousel >= AudioToVideoContainer.Scripts.length - 1) {
+                    SetSelectedTextToSpeechCarousel(0);
+                } else {
+                    SetSelectedTextToSpeechCarousel((e) => e + 1);
+                }
+            }
+           
+        }
+    }
     function ScrollVideoAudioUploadContainer (props){
         if(props == 'back') {
             //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
@@ -1552,6 +1890,28 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
            
         }
     }
+    function ScrollSelectedTextToSpeechAudioListContainer (props){
+        if(props == 'back') {
+            //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
+            if(AudioToVideoContainer.TextToSpeechAudioList){
+                if (SelectedTextToSpeechAudioList === 0) {
+                    SetSelectedTextToSpeechAudioList(AudioToVideoContainer.TextToSpeechAudioList.length - 1)
+                } else {
+                    SetSelectedTextToSpeechAudioList((e) => e - 1);
+                }
+            }
+            
+        }else if(props == 'next'){
+            if(AudioToVideoContainer.TextToSpeechAudioList){
+                if (SelectedTextToSpeechAudioList >= AudioToVideoContainer.TextToSpeechAudioList.length - 1) {
+                    SetSelectedTextToSpeechAudioList(0);
+                } else {
+                    SetSelectedTextToSpeechAudioList((e) => e + 1);
+                }
+            }
+           
+        }
+    }
     function ScrollVideoYoutubeIdCarousel (props){
         if(props == 'back') {
             //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
@@ -1579,8 +1939,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             //console.log(PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel])
             if(AiVideoMergeUrl.length != 0){
                 if (SelectedAiVideoMergeUrl === 0) {
+                    SetSelectedVideoImageCarousel(AiVideoMergeUrl.length - 1)
                     SetSelectedAiVideoMergeUrl(AiVideoMergeUrl.length - 1)
                 } else {
+                    SetSelectedVideoImageCarousel((e) => e - 1)
                     SetSelectedAiVideoMergeUrl((e) => e - 1);
                 }
             }
@@ -1597,17 +1959,26 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         }
     }
     
-    const MapImageCarousels = ({imagelist = []}) => {
-        // className= {`mask-square h-fit m-auto min-h-fit  max-w-[250px] rounded-md cursor-pointer max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-b-md   `}
-        var lists = imagelist.map((items,i) => {
-            var imageurl = `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/youtube/${items.name}`
-            //console.log(imageurl)
-            return (
-                <img key={i} loading="lazy" onClick={()=>ChangeMediaGallary(imageurl,'image')} className= {`mask-square h-full m-auto min-h-full min-w-full max-h-[250px] xs:max-h-[320px] xs:max-w-xs rounded-md cursor-pointer rounded-b-md   `} src={imageurl || null}  alt="media not found"/>        
-            )
-        })
-        return lists
-    }
+    const MapImageCarousels = ({ imagelist = [], imagType = 'shorts' }) => {
+        return imagelist.map((item, i) => {
+          const imageurl = `${import.meta.env.VITE_APP_API_URL}/media/${UserEmail}/youtube/${item.name}`;
+          return (
+            <img
+              key={i}
+              loading="lazy"
+              onClick={() => ChangeMediaGallary(imageurl, 'image')}
+              className={`object-cover rounded-md cursor-pointer w-full ${
+                imagType === 'shorts'
+                  ? 'aspect-[9/16]'  // vertical portrait for shorts
+                  : 'aspect-video'   // landscape 16:9 for videos
+              }`}
+              src={imageurl || null}
+              alt="media not found"
+            />
+          );
+        });
+    };
+
     function ClickUploadRepository (props) {
         if(props != null){
             document.getElementById(props).click()
@@ -1649,8 +2020,69 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
             formData.append('NumberOfRequestRetry',0)
             UploadAudioToVideoAudios(formData)
+        }else if(props == 'Convert'){
+            if(AudioToVideoContainer.Scripts.length == 0){
+                ShowToast('warning','Seams like you haven\'t provided any script. Provide to proceed!')
+                return
+            }
+            if(PostContentContainer.SocialMediaNumberImagesOptions == ''){
+                ShowToast('warning','Seams like you haven\'t selected audio mode')
+                return
+            }
+          
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'FirstStepLevel' : 1,
+                    'progressLevel' :  1,
+                    'LoadingVideoList' : true
+                }
+            })
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'TextToSpeechAudioList' : []
+                }
+            })
+            dispatch({
+                type :ProgressInformationReducer,
+                payload : 'Creating your audios. Please hold '
+            })
+            requestWsStream('RequestTextToSpeech')
+            
+        }else if(props == 'ReturnScripting'){
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'TextToSpeechScope' : 'Scripting'
+                }
+            })
+        }else if(props == 'VerifyPreview'){
+            var lengthval = AudioToVideoContainer.TextToSpeechAudioList.length
+            var transcripts = AudioToVideoContainer.Scripts
+            var promptConstructed = {
+                'socialMedia' : PostContentContainer.SelectedSocialMediaType,
+                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object . each ${lengthval} object should get its description idea on the following array at the same index position '${transcripts}  ' `,
+               
+            }
+            dispatch({
+                type :ProgressInformationReducer,
+                payload : 'Generating video data. Please hold... '
+            })
+            PlayNotifiactions('play')
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'FirstStepLevel' : 1,
+                    'progressLevel' :  1,
+                    'LoadingVideoList' : true
+                }
+            })
+            //console.log('transcribing now')
+            requestWsStream('RequestAITTSResponse',promptConstructed)
         }
     }
+
     function ClearUplaodedAudio (ival,position,AudioPreviewTag,AudioUploadName) {
         if(ival != null && AudioPreviewTag != null){
             const newObject = {
@@ -1708,36 +2140,79 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
         }       
     }
-    const MapImageCarouselsContainer = PostContentContainer.VideoListDetailsWithImages.map((items,i) => {
+    function ToongleAddScripts (props,position=0) {
+        if(props == 'add') {
+            if(handleTextToSpeechInput == ''){
+                ShowToast('warning','Input a script to proceed')
+                return
+            }
+            var dataval = AudioToVideoContainer.Scripts
+            dataval.push(handleTextToSpeechInput)
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'Scripts' : dataval
+                }
+            })
+            SethandleTextToSpeechInput('')
+        }else if(props == 'remove') {
+            var dataval = AudioToVideoContainer.Scripts
+            dataval.splice(position, 1);
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'Scripts' : dataval
+                }
+            })            
+        }
+    }
+    
+    const MapImageCarouselsContainer = PostContentContainer.VideoListDetailsWithImages.map((items, i) => {
+        const imageListval = items.ImageList;
+        const imagType =
+          AiPageSelected === 'ImageToVideo'
+            ? PostContentContainer.SocialMediaVideosTypeOptions
+            : items.videoType;
         
-        var imageListval = items.ImageList
-        // {<MapImageCarousels imagelist={imageListval}/>}
-      
         return (
-           <div key={i} className={`flex flex-row gap-0 w-full min-w-full min-h-full bg-transparent h-[250px] transition-all duration-300  overflow-hidden `} >
-               <div className={`flex flex-col gap-0  w-full h-full min-h-full  bg-transparent justify-start overflow-hidden `}>
-                    <div onTouchStart={handleTouchImageStart } onTouchEnd={handleTouchImageEnd } style={{transform: `translateX(-${SelectedVideoImage * 100}%)`}}  className=" rounded-sm flex flex-row h-[90%]  bg-transparent  transition-all ease-in-out duration-300 w-full overflow-visible " >
-                        {<MapImageCarousels imagelist={imageListval}/>}
-                    </div>
-                    {/* left right arrow div */}
-                    <div className=" flex flex-row relative sm:text-lg w-full mx-auto min-h-[10%] h-fit bg-transparent sm:my-auto justify-center dark:text-gray-400 pt-1 text-slate-700 text-base gap-10 mb-auto " >
-                        <p className=" text-sm py-1 absolute right-full left-0 top-0 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
-
-                        <LuCornerUpLeft  onClick={() => ScrollVideoImage('back')} className={` ${imageListval.length <= 1 ? 'invisible' : 'visible'} cursor-pointer bg-transparent hover:text-white transition-all  duration-300 `} />
-                        <LuCornerUpRight  onClick={() => ScrollVideoImage('next')} className={` ${imageListval.length <= 1 ? 'invisible' : 'visible'} cursor-pointer  hover:text-white bg-transparent transition-all duration-300 `} />
-                    </div>
-                </div>
-                
-           </div>
-        )
-    })
-
+          <div
+            key={i}
+            className="flex flex-row gap-0 w-fit min-w-fit h-full min-h-full bg-transparent transition-all duration-300 overflow-hidden"
+          >
+            <div className="flex flex-col gap-0 w-full h-full  bg-transparent justify-start overflow-hidden">
+              <div
+                onTouchStart={handleTouchImageStart}
+                onTouchEnd={handleTouchImageEnd}
+                style={{ transform: `translateX(-${SelectedVideoImage * 100}%)` }}
+                className={`${currentContainerHeightContainer} rounded-sm flex flex-row bg-transparent transition-all ease-in-out duration-300 w-full overflow-visible`}
+              >
+                <MapImageCarousels imagelist={imageListval} imagType={imagType} />
+              </div>
+              {/* Navigation arrows and numbering within each carousel */}
+              <div className="flex flex-row relative sm:text-lg w-full mx-auto min-h-[10%] h-fit bg-transparent sm:my-auto justify-center dark:text-gray-400 pt-1 text-slate-700 text-base gap-10 mb-auto">
+                <p className="text-sm py-1 absolute right-full left-0 top-0 mb-auto text-black dark:text-slate-100">
+                  {i + 1}
+                </p>
+                <LuCornerUpLeft
+                  onClick={() => ScrollVideoImage("back")}
+                  className={`${imageListval.length <= 1 ? "invisible" : "visible"} cursor-pointer bg-transparent hover:text-white transition-all duration-300`}
+                />
+                <LuCornerUpRight
+                  onClick={() => ScrollVideoImage("next")}
+                  className={`${imageListval.length <= 1 ? "invisible" : "visible"} cursor-pointer hover:text-white bg-transparent transition-all duration-300`}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      });
+   
     const MapVideoScripts = PostContentContainer.VideoListDetailsWithImages.map((items,i) => { 
         var script = items.audio.script
        
         return (
             <div key={i} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
-                <p className=" text-sm py-1 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
+                <p className=" text-sm py-1 mb-auto text-black dark:text-slate-100 " >{i + 1}</p>
                 <button onClick={() => copyToClipboard(script)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
                     <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
                 </button>
@@ -1745,6 +2220,19 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             </div>
         )
     })  
+    const MapTextToSpeechCarouselScripts = AudioToVideoContainer.Scripts.map((items,i) => { 
+        var script = items
+       
+        return (
+            <div key={i} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-1`}>
+                <p className=" text-sm py-1 mb-auto text-black dark:text-slate-100 " >{i + 1}/{AudioToVideoContainer.Scripts.length}</p>
+                <button onClick={() => ToongleAddScripts('remove',i)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-transparent hover:shadow-red-500 dark:hover:shadow-red-300 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                    <IoTrashOutline  className=" my-auto text-sm mx-auto text-slate-900 dark:text-slate-200 transition-all duration-300 "  role="button" />
+                </button>
+                <textarea disabled className=" text-sm w-full sm:w-[80%] disabled resize-none min-h-[80px] shadow-xs p-1 rounded-sm dark:text-slate-50 text-black  text-ellipsis " readOnly value={script}></textarea>
+            </div>
+        )
+    }) 
     const MapVideoAudioUploadContainer = PostContentContainer.VideoListDetailsWithImages.map((items,i) => { 
        var idval = `AiVoiceRef${i}`
        var AudioPreviewTag = `${idval}_AudioPreviewTag`
@@ -1753,7 +2241,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         return (
             <div key={i} className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
                 <input onChange={(event) =>ToogleAudioUpload(idval,i,AudioPreviewTag,AudioUploadName,event)} id={idval} className=" hidden" accept="audio/*"  type="file" />
-                <p className=" text-sm  text-slate-800 absolute dark:text-slate-400 " >{i + 1}</p>
+                <p className=" text-sm  text-black absolute dark:text-slate-100 " >{i + 1}</p>
 
                 <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
                     <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
@@ -1765,7 +2253,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
 
                     <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
                         <audio controlsList="nodownload"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " id={AudioPreviewTag} controls src=''></audio>
-                        <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() =>ClearUplaodedAudio(idval,i,AudioPreviewTag,AudioUploadName)} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                        <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() =>ClearUplaodedAudio(idval,i,AudioPreviewTag,AudioUploadName)} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-100 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
                     </div>
                 </div>
             </div>
@@ -1777,24 +2265,40 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
          return (
              <div key={i} className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-col relative justify-start overflow-hidden sm:pl-8 w-full h-[150px] bg-transparent min-h-full`} >
                 <div className="flex flex-row justify-start gap-4 w-full pt-2 " >
-                    <p className="my-auto text-sm  text-slate-800  dark:text-slate-400 " >{i + 1}.</p>
-                    <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() =>ClearAudioToVideoUplaodedAudio(i)} className={`dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 text-sm underline underline-offset-2 italic cursor-pointer w-fit `} >clear</p>
+                    <p className="my-auto text-sm  text-black  dark:text-slate-100 " >{i + 1}.</p>
+                    <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() =>ClearAudioToVideoUplaodedAudio(i)} className={`dark:text-slate-100 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 text-sm underline underline-offset-2 italic cursor-pointer w-fit `} >clear</p>
                 </div>
                  <div className="flex flex-col gap-2 justify-start w-full pt-2 " >
-                    <p className="my-auto text-sm pl-2 text-slate-800 w-full text-ellipsis max-w-[200px] xs:max-w-[320px] sm:max-w-[400px] text-nowrap overflow-hidden dark:text-slate-400 " >{items.name}</p>
+                    <p className="my-auto text-sm pl-2 text-black w-full text-ellipsis max-w-[200px] xs:max-w-[320px] sm:max-w-[400px] text-nowrap overflow-hidden dark:text-slate-100 " >{items.name}</p>
                     <audio controlsList="nodownload"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 "  controls src={items.src}></audio>
                  </div>
              </div>
              
          )
     })
+    const MapTextToSpeechAudioListContainer = AudioToVideoContainer.TextToSpeechAudioList.map((items,i) => { 
+        var path = `${import.meta.env.VITE_APP_API_URL}/media/${items}`
+      
+        return (
+            <div key={i} className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-col relative justify-start overflow-hidden sm:pl-8 w-full h-[150px] bg-transparent min-h-full`} >
+               <div className="flex flex-row justify-start gap-4 w-full pt-2 " >
+                   <p className="my-auto text-sm  text-black  dark:text-slate-100 " >{i + 1}.</p>
+               </div>
+                <div className="flex flex-col gap-2 justify-start w-full pt-2 " >
+                   <p className="my-auto text-sm pl-2 text-black w-full text-ellipsis max-w-[200px] xs:max-w-[320px] sm:max-w-[400px] text-nowrap overflow-hidden dark:text-slate-100 " >Text to audio</p>
+                   <audio controlsList="nodownload"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 "  controls src={path}></audio>
+                </div>
+            </div>
+            
+        )
+   })
 
     const MapVideoYoutubeId = PostContentContainer.UploadedVideoId.map((items,i) => { 
         var script = items
       
         return (
             <div key={i} className={` flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
-                <p className=" text-sm py-1 mb-auto text-slate-800 dark:text-slate-400 " >{i + 1}</p>
+                <p className=" text-sm py-1 mb-auto text-black dark:text-slate-100 " >{i + 1}</p>
                 <button onClick={() => copyToClipboard(script)} data-tip="Copy script"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-5 h-6 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
                     <MdContentCopy   className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
                 </button>
@@ -1804,18 +2308,32 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     })
  
     const MapVideoUrlCarousels = AiVideoMergeUrl.map((items,i) => { 
-        return (
-            <div key={i} className={`flex flex-row w-full h-[250px] min-h-full py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
-                <video controls className={` `} src={`${import.meta.env.VITE_APP_API_URL}/media/${items}` || null} ></video>
+        var url = items
+       return (
+            <div key={i} className={`flex flex-row w-full h-full min-h-full overflow-hidden py-4 px-2 min-w-full sm:pl-8 justify-around  gap-3`}>
+                {/* <video controls className={`w-fit h-fit hidden max-h-[500px] max-w-full `} src={`${import.meta.env.VITE_APP_API_URL}/media/${url}` || null} ></video> */}
+                <Player
+                    playsInline
+                    poster="/assets/poster.png"
+                    
+                    src={`${import.meta.env.VITE_APP_API_URL}/media/${url}` || null}
+                />
             </div>
         )
     })
+
     const ToongleProfileYoutubeChannelsChange = (event) => {
         const {value} = event.target
         SetSelectedtokenPathName(value)
     }
+    const ToongleProfileYoutubeChannelsChangeClear = (props) => {
+        if(props != null) {
+            SetSelectedtokenPathName(props)
+        }
+    }
    
     const MapProfileYoutubeChannels = ProfileYoutubeChannels.map((items, i) => {
+        // console.log(items)
         return (
             <div key={i} className="flex flex-row group hover:bg-slate-400 dark:hover:bg-slate-700 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start gap-4 px-2 ">
                 <input 
@@ -1824,10 +2342,10 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     name="profileYoutubeChannels"  // common name for the group
                     //disabled={false} //{PostContentContainer.LoadingVideoList == true}
                     value={items.tokenPath}
-                    // checked={items.tokenPath === SelectedtokenPathName}  // control checked state
+                    // checked={items.tokenPath === SelectedtokenPathName} 
                     className="radio radio-info dark:radio-success shadow-xs shadow-slate-500/80 dark:shadow-slate-100/60"
                 />
-                <p className="text-sm py-1 text-slate-800 dark:text-slate-400">{items.name}</p>
+                <p className="text-sm py-1 text-black dark:text-slate-100">{items.name}</p>
             </div>
         );
     });
@@ -1851,20 +2369,65 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 console.error("Failed to copy:", err)
             });
     }
+    function ToongleAudioToVideoContainerScope(props){
+        if(props != null) {
+            SetAudioToVideoContainer((e) => {
+                return  {
+                    ...e,
+                    'Scope' :props
+                }
+            })
+        }
+    }
+    function ToongleImageToVideo_AudioScope(props){
+        if(props =='AudioUpload') {
+            SetPostContentContainer((e) => {
+                return  {
+                    ...e,
+                    'AudioUploadScope' :props
+                }
+            })
+            SetDisableMergeButton(true)
+        }else if(props =='TextToSpeech') {
+            SetPostContentContainer((e) => {
+                return  {
+                    ...e,
+                    'AudioUploadScope' :props
+                }
+            })
+            SetDisableMergeButton(false)
+        }
+    }
+    const handleTextToSpeechInputChange = (e) => {
+        let words = e.target.value //.trim().split(/\s+/);
+        var lengthword = words.trim().split(/\s+/).length
+        //console.log(lengthword)
+        if (lengthword >= 762) {
+        //   words = words.slice(0, 5); // Limit to 762 words
+        //   console.log('limit')
+        }else{
+            SethandleTextToSpeechInput(words);
+        }
+        
+    };
+    
     //videos of birds, others are eagles, parots, flamingos and other more
     return (
         <div className={` h-full  bg-transparent min-h-[100vh] py-4 overflow-x-hidden w-full overflow-y-auto relative min-w-full max-w-[100%] flex flex-col justify-between  `} >
             {/*media galary displayer */}
             <div className={` ${MediaGallary.show ? 'absolute flex flex-row' : 'hidden'}  z-40 w-full pt-2 cursor-not-allowed bg-slate-700/60 min-h-full `} >
-                <div className={` flex flex-col px-2 py-4 w-fit max-w-[95%] xl:max-w-[70vw] justify-start mx-auto cursor-pointer bg-slate-800 bg-opacity-70 border-slate-500 border-[1px] h-fit min-h-fit max-h-[80vh]  sm:w-[90%] rounded-md pt-2  `} >
+                <div className={` flex flex-col px-2 py-4 w-fit max-w-[95%] xl:max-w-[70vw] justify-start m-auto cursor-pointer bg-slate-800 bg-opacity-70 border-slate-500 border-[1px] h-fit min-h-fit max-h-[80vh]  sm:w-[90%] rounded-md pt-2  `} >
                     <button onClick={() => CloseMediaGallary('close')} data-tip='close' className=" tooltip tooltip-bottom my-auto ml-auto mr-2 mt-1 w-fit " >
-                        <MdOutlineAdd className={`rotate-45 cursor-pointer text-lg xs:text-2xl  text-slate-600  dark:text-slate-400 hover:text-slate-950 dark:hover:text-slate-200 z-30 transition-all duration-30  lg:text-2xl `} />
+                        <MdOutlineAdd className={`rotate-45 cursor-pointer text-lg xs:text-2xl  text-slate-600  dark:text-slate-100 hover:text-slate-950 dark:hover:text-slate-200 z-30 transition-all duration-30  lg:text-2xl `} />
                     </button>
                     {/* container for image */}
                     <div className={` ${MediaGallary.type == 'image' ? '' : 'hidden'} m-auto w-full min-w-full h-full min-h-fit `} >
-                        <img loading="lazy"
-                            className= {` ${MediaGallary.type == 'image' ? 'mask-square h-fit m-auto max-h-[500px] min-h-fit rounded-b-md ' : ' hidden'} `}
-                            src={MediaGallary.src || null} 
+                        <img
+                            loading="lazy"
+                            onClick={() => ChangeMediaGallary(imageurl, 'image')}
+                            className={`object-cover rounded-md cursor-pointer w-full ${MediaGallary.type == 'image' ? 'mask-square max-h-[80vh] bg-center md:max-h-[70vh] rounded-b-md ' : ' hidden'}  ${ currentImagType === 'shorts' ? 'aspect-[9/16]': ' max-h-[90vh] h-fit' }`}
+                            src={MediaGallary.src || null}
+                            alt="media not found"
                         />
                     </div>
                     
@@ -1875,9 +2438,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             <section className={`  md:w-full  justify-between flex flex-col relative overflow-x-hidden overflow-y-visible w-full rounded-sm  md:mx-auto bg-transparent dark:text-slate-100 m-auto   h-full`}>
                 <small className=" text-slate-600 dark:text-slate-500 text-center" >It just takes three steps</small>
                 {/* changing <image/audio> to voice container */}
-                <div className=" w-full min-w-full overflow-y-auto  h-fit flex flex-row bg-transparent justify-start gap-4 px-3 " >
-                    <p onClick={()=> ToongleAiPageSelected('ImageToVideo')} className={` ${AiPageSelected == 'ImageToVideo' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Image to video</p>
-                    <p onClick={()=> ToongleAiPageSelected('VoiceToVideo')} className={` ${AiPageSelected == 'VoiceToVideo' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-400 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit  `}>voice To video</p>
+                <div className=" w-full min-w-full overflow-y-auto  h-fit min-h-fit flex flex-row bg-transparent justify-start gap-4 px-3 " >
+                    <p onClick={()=> ToongleAiPageSelected('ImageToVideo')} className={` ${AiPageSelected == 'ImageToVideo' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-100 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Image to video</p>
+                    <p onClick={()=> ToongleAiPageSelected('VoiceToVideo')} className={` ${AiPageSelected == 'VoiceToVideo' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-100 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit  `}>voice To video</p>
                 </div>
                 {/* Image to video container */}
                 <div className={` ${ AiPageSelected == 'ImageToVideo' ?'flex flex-col' : 'hidden'} gap-3 w-[95%] max-w-[1000px] text-black dark:text-slate-100 m-auto  `} >
@@ -1892,14 +2455,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         </div>
                         <div className={` collapse-content flex transition-all  duration-200 flex-col gap-5 `} >
                             {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-100 duration-300 mx-auto `}>
                                 <li className={`step ${PostContentContainer.FirstStepLevel == 1 ?'step-primary' : PostContentContainer.FirstStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Details</li>
                                 <li className={`step ${PostContentContainer.FirstStepLevel == 2 ?'step-primary' : PostContentContainer.FirstStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>Verification</li>
                             
                             </ul>
                             {/* information gathare container */}
                             <div className={` ${PostContentContainer.FirstStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit  gap-3 `} >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of images per video</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Number of images per video</p>
                                 <Select
                                     isMulti
                                     options={SocialMediaNumberImagesOptions}
@@ -1911,7 +2474,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     styles={customStyles(Theme)}
                                     className="max-h-[200px] "
                                 />
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of videos</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Number of videos</p>
                                 <Select
                                     isMulti
                                     options={SocialMediaNumberVideosOptions}
@@ -1923,8 +2486,20 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     styles={customStyles(Theme)}
                                     className="max-h-[200px] "
                                 />
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Type of videos</p>
+                                <Select
+                                    isMulti
+                                    options={SocialMediaVideosTypeOptions}
+                                    value={PostContentContainer.SocialMediaVideosTypeOptions}
+                                    onChange={handleSocialMediaOptionsChange}
+                                    name="SocialMediaVideosTypeOptions"
+                                    placeholder="shorts or video"
+                                    theme={(theme) => customTagSelectorTheme(theme, Theme)}
+                                    styles={customStyles(Theme)}
+                                    className="max-h-[200px] "
+                                />
                                 <div className={` ${PostContentContainer.ModeValue == 'AI' ? 'flex flex-col gap-3' : 'hidden'} `} >
-                                    <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Write a short description of your videos to be generated</p>
+                                    <p className=" text-sm py-1 text-black dark:text-slate-100 " >Write a short description of your videos to be generated</p>
                                     {/* chat component */}
                                     <textarea  
                                         className={` w-full bg-transparent max-h-[120px] resize-y outline-none text-slate-950   dark:text-slate-200 shadow-xs border-none focus-within:ring-0 focus-within:shadow-2Sxl ring-0 placeholder:text-slate-700 dark:placeholder:text-slate-400 focus:outline-transparent rounded-xl focus:border-transparent textarea   min-h-fit  h-[70px] overflow-y-auto`}  
@@ -1944,7 +2519,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>
                                             :
-                                            <button disabled={watch('AIprompt') == ''  || PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || PostContentContainer.SocialMediaNumberVideosOptions.length == 0} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
+                                            <button disabled={watch('AIprompt') == ''  || PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || PostContentContainer.SocialMediaNumberVideosOptions.length == 0 || PostContentContainer.SocialMediaVideosTypeOptions.length == 0} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
                                     }
 
                                 </div>
@@ -1952,7 +2527,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </div>
                             {/* details verification and modifications generation */}
                             <div className={` w-full ${PostContentContainer.FirstStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[350px] min-h-fit  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Verify credibility. Edit if desired</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Verify credibility. Edit if desired</p>
                                 <CodeMirror
                                     value={PostContentContainer.VideoListDetails}
                                     extensions={[
@@ -1963,7 +2538,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     onChange={HandleCodeEditorChange}
                                     height="550px"
                                     theme={Theme == 'dark' ? oneDark : 'light'} // Optional: Set a dark theme
-                                    className=" text-slate-800 dark:text-slate-300 overflow-y-auto w-full max-w-[270px] min-w-full xs:max-w-[300px] "
+                                    className=" text-black dark:text-slate-300 overflow-y-auto w-full max-w-[270px] min-w-full xs:max-w-[300px] "
                                 />
 
                                 {/* progressLevel buttons */}
@@ -1973,7 +2548,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                         :
-                                            <button disabled={false} onClick={() => ToongleFirstStepLeve2('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verified</button>
+                                            <button disabled={false} onClick={() => ToongleFirstStepLeve2('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verified</button>
                                     }
 
                                 </div>
@@ -1992,14 +2567,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         {/*Content*/}
                         <div className="collapse-content ">
                              {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-100 duration-300 mx-auto `}>
                                     <li className={`step ${PostContentContainer.SecondStepLevel == 1 ?'step-primary' : PostContentContainer.SecondStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Imaging</li>
                                     <li className={`step ${PostContentContainer.SecondStepLevel == 2 ?'step-primary' : PostContentContainer.SecondStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>voicing</li>
                                 
                             </ul>
                             {/* imaging */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 1 ? 'flex flex-col' : 'hidden'} justify-around h-[200px] min-h-fit  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Create images</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Create images</p>
                                 {/* progressLevel buttons */}
                                 <div className={` flex flex-row flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'border-t-[1px] ' : 'border-t-0'} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
@@ -2010,7 +2585,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div> :
-                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('Create')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
+                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('Create')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
                                     }
                                 </div>
                             </div>
@@ -2018,24 +2593,33 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             {/* voicing */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
                                 {/*image carousels */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 pt-2 " >Image previews</p>
-                                <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
-                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedVideoImageCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
-                                                {MapImageCarouselsContainer}
-                                            </div>
-                                        </div>
-                                        {/* arrow up down div */}
-                                        <div className={`flex flex-col ${PostContentContainer.VideoListDetailsWithImages.length <= 1 ? ' invisible' : 'visible'}  justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base`} >
-                                            <IoChevronUpOutline  onClick={() => ScrollVideoImageCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                            <IoChevronDownOutline  onClick={() => ScrollVideoImageCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 pt-2 " >Image previews</p>
+                                <div className="flex flex-row justify-center sm:justify-start  gap-1 w-full h-fit overflow-hidden sm:mx-0 mx-auto">
+                                    <div className={`${currentContainerHeight} w-[90%] sm:w-full max-w-[350px] xs:max-w-xs mx-auto overflow-hidden`}>
+                                        <div
+                                            style={{ transform: `translateY(-${SelectedVideoImageCarousel * 100}%)` }}
+                                            className={`${currentContainerHeight} rounded-sm flex flex-col w-full  transition-all ease-in-out duration-300 bg-transparent m-auto overflow-y-visible`}
+                                        >
+                                            {MapImageCarouselsContainer}
                                         </div>
                                     </div>
-                                    
+                                    {/* Arrow controls */}
+                                    <div className={`${
+                                            PostContentContainer.VideoListDetailsWithImages.length <= 1 ? "invisible" : "visible"
+                                        } transition-all duration-300 flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit min-w-fit dark:text-gray-400 text-slate-700 text-base`}
+                                        >
+                                        <IoChevronUpOutline
+                                            onClick={() => ScrollVideoImageCarousel("back")}
+                                            className="cursor-pointer hover:text-white bg-transparent transition-all duration-300"
+                                        />
+                                        <IoChevronDownOutline
+                                            onClick={() => ScrollVideoImageCarousel("next")}
+                                            className="cursor-pointer hover:text-white bg-transparent transition-all duration-300"
+                                        />
+                                    </div>
                                 </div>
                                 {/* custom scripting */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Bellow is a custom 60 sec script you can use to generate your audio</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Bellow is a custom 60 sec script you can use to generate your audio</p>
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
                                         <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
@@ -2054,54 +2638,69 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 {/* upload */}
                                 
                                 {/* audio model selection */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Select audio mode</p>
-                                <Select
-                                    isMulti
-                                    options={VideoAudioModeOptions}
-                                    value={PostContentContainer.VideoAudioModeOptions}
-                                    onChange={handleSocialMediaOptionsChange}
-                                    name="VideoAudioModeOptions"
-                                    placeholder="..."
-                                    theme={(theme) => customTagSelectorTheme(theme, Theme)}
-                                    styles={customStyles(Theme)}
-                                    className="max-h-[200px] "
-                                />
-                                <p className={` ${PostContentContainer.VideoAudioModeSelectedOptions == '' ? 'hidden' : ''} text-sm py-1 text-slate-800 dark:text-slate-400 `} >Upload audio to be merged with images created</p>
-                                
-                                <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
-                                    <div className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
-                                        <input onChange={ToogleOneForAllAudioUpload} ref={AiVoiceRef} className=" hidden" accept="audio/*"  type="file" />
-                                        <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
-                                            <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
-                                                <button onClick={ClickOneForAllUploadRepository} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                                    <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                                </button>
-                                                <input  className=" text-sm w-full rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={`name: ${OneForAllAudioUpload.Name}`} />
-                                            </div>
-
-                                            <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
-                                                <audio controlsList="nodownload" id="OneForAllAudioPreviewTag"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " controls src={OneForAllAudioUpload.src}></audio>
-                                                <p disabled={PostContentContainer.LoadingVideoList == true} onClick={ClearOneForAllUplaodedAudio} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 ">Select audio creation mode</p>
+                                <div className="flex border-y-[1px] dark:border-slate-600 border-slate-500 rounded-sm py-4 text-xs flex-row w-full align-middle justify-start gap-3 pl-4 " >
+                                    <button onClick={() => ToongleImageToVideo_AudioScope('AudioUpload')} data-tip='Upload multiple scripts to be converted to audio that they may be used in creating video'
+                                            className={`shadow-xs ${PostContentContainer.AudioUploadScope == 'AudioUpload' ? ' shadow-purple-900 dark:shadow-amber-200' : ' '} hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top  transition-all duration-300 px-3 py-2 rounded-sm cursor-pointer  `} 
+                                            >Upload audio
+                                    </button>
+                                    <small className=" my-auto dark:text-gray-400" >or</small>
+                                    <button onClick={() => ToongleImageToVideo_AudioScope('TextToSpeech')} data-tip='Upload multiple audio to be converted that they may be used in creating video'
+                                            className={`shadow-xs ${PostContentContainer.AudioUploadScope == 'TextToSpeech' ? 'shadow-purple-900 dark:shadow-amber-200 shadow-xs' : ''}hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top hover:shadow-xstransition-all duration-300 px-3 py-2 rounded-sm cursor-pointer `} 
+                                            >Transcribe script
+                                    </button>
                                 </div>
-                                <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
-                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedVideoAudioUploadContainer * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
-                                                {MapVideoAudioUploadContainer}
-                                            </div>
-                                        </div>
-                                        {/* arrow up down div */}
-                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
-                                            <IoChevronUpOutline  onClick={() => ScrollVideoAudioUploadContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                            <IoChevronDownOutline  onClick={() => ScrollVideoAudioUploadContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                        </div>
-                                    </div>
+                                <div className={` ${PostContentContainer.AudioUploadScope == 'AudioUpload' ? 'flex flex-col' : 'hidden'} h-fit justify-start min-h-fit w-full  gap-3 `}>
+                                    <Select
+                                        isMulti
+                                        options={VideoAudioModeOptions}
+                                        value={PostContentContainer.VideoAudioModeOptions}
+                                        onChange={handleSocialMediaOptionsChange}
+                                        name="VideoAudioModeOptions"
+                                        placeholder="..."
+                                        theme={(theme) => customTagSelectorTheme(theme, Theme)}
+                                        styles={customStyles(Theme)}
+                                        className="max-h-[200px] "
+                                    />
+                                    <p className={` ${PostContentContainer.VideoAudioModeSelectedOptions == '' ? 'hidden' : ''} text-sm py-1 text-black dark:text-slate-100 `} >Upload audio to be merged with images created</p>
                                     
+                                    <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                        <div className={`${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
+                                            <input onChange={ToogleOneForAllAudioUpload} ref={AiVoiceRef} className=" hidden" accept="audio/*"  type="file" />
+                                            <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
+                                                <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
+                                                    <button onClick={ClickOneForAllUploadRepository} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                                                        <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                                                    </button>
+                                                    <input  className=" text-sm w-full rounded-sm dark:text-slate-300 text-slate-600  text-ellipsis " readOnly value={`name: ${OneForAllAudioUpload.Name}`} />
+                                                </div>
+
+                                                <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
+                                                    <audio controlsList="nodownload" id="OneForAllAudioPreviewTag"  className=" w-full sm:mx-auto max-w-xs py-2 px-1 " controls src={OneForAllAudioUpload.src}></audio>
+                                                    <p disabled={PostContentContainer.LoadingVideoList == true} onClick={ClearOneForAllUplaodedAudio} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-100 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className={` ${PostContentContainer.VideoAudioModeSelectedOptions == 'AllForAll' ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                        <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                            <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                                <div style={{transform: `translateY(-${SelectedVideoAudioUploadContainer * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                    {MapVideoAudioUploadContainer}
+                                                </div>
+                                            </div>
+                                            {/* arrow up down div */}
+                                            <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                                <IoChevronUpOutline  onClick={() => ScrollVideoAudioUploadContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                <IoChevronDownOutline  onClick={() => ScrollVideoAudioUploadContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            </div>
+                                        </div>
+                                        
+                                    </div>
                                 </div>
-                                
+                                <div className={` ${PostContentContainer.AudioUploadScope == 'TextToSpeech' ? 'flex flex-col' : 'hidden'} h-[100px] pl-4 justify-start min-h-fit w-full  gap-3 `}>
+                                    <p className=" text-sm py-1 text-black dark:text-slate-100 " >Audios will be generated from the automated scripts above and merged with images. Feel free to proceed</p>
+                                </div>
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     <button disabled={PostContentContainer.LoadingVideoList == true} onClick={() => ToongleSecondProgressLevel('back')} className={`  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Back</button>
 
@@ -2114,7 +2713,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                     <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>
                                         :
-                                            <button disabled={DisableMergeButton} onClick={() => ToongleSecondProgressLevel('Merge')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
+                                            <button disabled={DisableMergeButton} onClick={() => ToongleSecondProgressLevel('Merge')} className={`${PostContentContainer.AudioUploadScope == '' ? ' invisible' : 'visible'} py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>{PostContentContainer.AudioUploadScope == 'AudioUpload' ? 'Merge' : 'Transcribe & Merge'}</button>
                                     }
                                 </div>
                                
@@ -2131,18 +2730,18 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         </div>                        
                         <div className="collapse-content">
                             {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-100 duration-300 mx-auto `}>
                                 <li className={`step ${PostContentContainer.ThirdStepLevel == 1 ?'step-primary' : PostContentContainer.ThirdStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Confirm</li>
                                 <li className={`step ${PostContentContainer.ThirdStepLevel == 2 ?'step-primary' : PostContentContainer.ThirdStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>Logs</li>
                             
                             </ul>
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Review your video</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Review your video</p>
                                 <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedAiVideoMergeUrl * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                        <div className={`h-full w-[90%] sm:w-full overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedAiVideoMergeUrl * 100}%)`}}  className={`${currentContainerHeightVideoContainer} rounded-sm flex flex-col w-full transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible `} >
                                                 {MapVideoUrlCarousels}
                                             </div>
                                         </div>
@@ -2152,14 +2751,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             <IoChevronDownOutline  onClick={() => ScrollVideoUrlCarousels('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                         </div>
                                     </div>
-                                    
                                 </div>
                                 <img className={`${AiVideoMergeUrl.length == 0  ? 'flex mask mask-squircle max-h-80 max-w-80 mx-auto lg:mr-auto lg:ml-0 ' : 'hidden'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${`media unavailable ${Theme}.jpg`}` || null}  />
                                 
                                 {/* progressLevel buttons */}
-                                <p className=" text-sm pt-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
-                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'flex' : 'hidden'} text-[x-small] text-slate-800 dark:text-slate-400 `} >If not selected you will be prompted to link another account via google</small>
-                                <small onClick={() => SetSelectedtokenPathName('token.json')} className={`${ProfileYoutubeChannels.length != 0 && PostContentContainer.LoadingVideoList == false ? 'flex' : 'hidden'} text-sm text-slate-800 dark:text-slate-400 underline cursor-pointer hover:text-red-800 dark:hover:text-red-300 transition-all duration-200 w-fit `} >clear</small>
+                                <p className=" text-sm pt-1 text-black dark:text-slate-100 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
+                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'flex' : 'hidden'} text-[x-small] text-black dark:text-slate-100 `} >If not selected you will be prompted to link another account via google</small>
+                                <small onClick={() => ToongleProfileYoutubeChannelsChangeClear('token.json')} className={`${ProfileYoutubeChannels.length != 0 && PostContentContainer.LoadingVideoList == false ? 'hidden' : 'hidden'} text-sm text-black dark:text-slate-100 underline cursor-pointer hover:text-red-800 dark:hover:text-red-300 transition-all duration-200 w-fit `} >clear</small>
                                 <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
                                     {MapProfileYoutubeChannels}
                                 </div>
@@ -2172,15 +2770,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>                                        :
-                                            <button disabled={false} onClick={() => ToongleThirdProgressLevel('Upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
+                                            <button disabled={false} onClick={() => ToongleThirdProgressLevel('Upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
                                     }
                                 </div>
                                 
                             </div>
                             {/* logs from submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
-                                <p className=" text-sm py-1 my-auto text-slate-800 dark:text-slate-400 " >Video successfuly uploaded</p>
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Your uploaded video id</p>
+                                <p className=" text-sm py-1 my-auto text-black dark:text-slate-100 " >Video successfuly uploaded</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Your uploaded video id</p>
                                 
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
@@ -2197,14 +2795,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     </div>
                                     
                                 </div>
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Clear my files in Mela server</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Clear my files in Mela server</p>
                                 <label className="label cursor-pointer">
-                                    <span className="label-text text-sm text-slate-800 dark:text-slate-400 mx-3">Clear</span>
+                                    <span className="label-text text-sm text-black dark:text-slate-100 mx-3">Clear</span>
                                     <input onChange={ToongleClearServerChange} checked={PostContentContainer.ClearServer} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
                                 </label>
                                 {/* progressLevel buttons */}
                                 <div className=" flex flex-row flex-wrap gap-2 mt-4 w-[90%] max-w-[600px] mx-auto justify-around">
-                                    <button disabled={false} onClick={() => ToongleThirdProgressLevel('Reset')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restart</button>
+                                    <button disabled={false} onClick={() => ToongleThirdProgressLevel('Reset')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restart</button>
                                 </div>
 
                             </div>
@@ -2225,14 +2823,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         </div>
                         <div className={` collapse-content flex transition-all  duration-200 flex-col gap-5 `} >
                             {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-black dark:text-text-slate-400 duration-300 mx-auto `}>
                                 <li className={`step ${PostContentContainer.FirstStepLevel == 1 ?'step-primary' : PostContentContainer.FirstStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Upload</li>
                                 <li className={`step ${PostContentContainer.FirstStepLevel == 2 ?'step-primary' : PostContentContainer.FirstStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>Verification</li>
                             
                             </ul>
                             {/* information gathare container */}
                             <div className={` ${PostContentContainer.FirstStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit w-full  gap-3 `} >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Number of images per video</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Number of images per video</p>
                                 <Select
                                     isMulti
                                     options={SocialMediaNumberImagesOptions}
@@ -2244,58 +2842,157 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     styles={customStyles(Theme)}
                                     className="max-h-[200px] "
                                 />
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload audio(s)</p>
-                                {/* audios upload container */}
-                                <div className={` ${!AudioToVideoContainer.ShowAudioToVideoContainer  ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
-                                    <div className={`flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
-                                        <input onChange={ToogleAiAudioToVoiceRefUpload} ref={AiAudioToVoiceRef} className=" hidden" accept="audio/*"  type="file" multiple  />
-                                        <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
-                                            <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
-                                                <button onClick={()=> AiAudioToVoiceRef.current.click()} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
-                                                    <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
-                                                </button>
-                                            </div>
-                                            <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
-                                                <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() => ClearAudioToVoiceUploadedAudio('clear')} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-400 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                <div className="flex border-y-[1px] dark:border-slate-600 border-slate-500 rounded-sm py-4 text-xs flex-row w-full align-middle justify-start gap-3 pl-4 " >
+                                    <button onClick={() => ToongleAudioToVideoContainerScope('TextToSpeech')} data-tip='Upload multiple scripts to be converted to audio that they may be used in creating video'
+                                            className={`shadow-xs ${AudioToVideoContainer.Scope == 'TextToSpeech' ? ' shadow-purple-900 dark:shadow-amber-200' : ' '} hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top  transition-all duration-300 px-3 py-2 rounded-sm cursor-pointer  `} 
+                                            >Text to Speech
+                                    </button>
+                                    <small className=" my-auto dark:text-gray-400" >or</small>
+                                    <button onClick={() => ToongleAudioToVideoContainerScope('AudioUpload')} data-tip='Upload multiple audio to be converted that they may be used in creating video'
+                                            className={`shadow-xs ${AudioToVideoContainer.Scope == 'AudioUpload' ? 'shadow-purple-900 dark:shadow-amber-200 shadow-xs' : ''}hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top hover:shadow-xstransition-all duration-300 px-3 py-2 rounded-sm cursor-pointer `} 
+                                            >Upload to Speech
+                                    </button>
                                 </div>
-                                {/* audio carousels */}
-                                <div className={` ${AudioToVideoContainer.ShowAudioToVideoContainer ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
-                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedAudioToVideoContainer * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
-                                                {MapAudioToVideoContainer}
+                                {/* text to speech scope */}
+                                <div className={` ${AudioToVideoContainer.Scope == 'TextToSpeech' ? 'flex flex-col' : 'hidden'} h-[300px] justify-start min-h-fit w-full  gap-3 `}>
+                                    {/* previewing text to speech */}
+                                    <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Previewing' ? 'flex flex-col' : 'hidden'} h-[300px] justify-start min-h-fit w-full  gap-3 `}>
+                                        <p className=" text-sm py-1 text-black dark:text-slate-100 " >Preview your audio(s)</p>
+                                        {/* audio carousels */}
+                                        <div className={`flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
+                                            <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                                <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                                    <div style={{transform: `translateY(-${SelectedTextToSpeechAudioList * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                        {MapTextToSpeechAudioListContainer}
+                                                    </div>
+                                                </div>
+                                                {/* arrow up down div */}
+                                                <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                                    <IoChevronUpOutline  onClick={() => ScrollSelectedTextToSpeechAudioListContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                    <IoChevronDownOutline  onClick={() => ScrollSelectedTextToSpeechAudioListContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                </div>
                                             </div>
                                         </div>
-                                        {/* arrow up down div */}
-                                        <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
-                                            <IoChevronUpOutline  onClick={() => ScrollSelectedAudioToVideoContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                            <IoChevronDownOutline  onClick={() => ScrollSelectedAudioToVideoContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                        </div>
-                                    </div>
-                                </div>
-                                {/* progressLevel buttons */}
-                                <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
-                                    {
-                                        PostContentContainer.LoadingVideoList == true ? 
-                                            <div className="flex flex-col w-full gap-3" >
-                                                <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
-                                                    <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
-                                                </Typist>
-                                                <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
-                                            </div>                                        :
-                                            <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.ShowAudioToVideoContainer} onClick={() => ToongleFirstStepLeveAudioToVideo('upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
-                                    }
+                                        {/* progressLevel buttons */}
+                                        <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
+                                            <button disabled={PostContentContainer.LoadingVideoList == true} onClick={() => ToongleFirstStepLeveAudioToVideo('ReturnScripting')} className={`  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Back</button>
+                                            {
+                                                PostContentContainer.LoadingVideoList == true ? 
+                                                    <div className="flex flex-col w-full gap-3" >
+                                                        <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                            <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
+                                                        </Typist>
+                                                        <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
+                                                    </div>                                        :
+                                                    <button disabled={!AudioToVideoContainer.ImageList.length != 0} onClick={() => ToongleFirstStepLeveAudioToVideo('VerifyPreview')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verify</button>
+                                            }
 
+                                        </div>
+                                    </div>
+                                    {/* scripting text to speech */}
+                                    <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Scripting' ? 'flex flex-col gap-3' : 'hidden'} h-[300px] justify-start min-h-fit w-full `}>
+                                        <p className=" text-sm py-1 text-black dark:text-slate-100 " >Upload script(s)</p>
+                                        {/* script carousels */}
+                                        <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
+                                            <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                                <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                                    <div style={{transform: `translateY(-${SelectedTextToSpeechCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                        {MapTextToSpeechCarouselScripts}
+                                                    </div>
+                                                </div>
+                                                {/* arrow up down div */}
+                                                <div className={` flex flex-col ${AudioToVideoContainer.Scripts.length <= 0 ? ' invisible' : 'visible'} justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base`} >
+                                                    <IoChevronUpOutline  onClick={() => ScrollTextToSpeechCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                    <IoChevronDownOutline  onClick={() => ScrollTextToSpeechCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                </div>
+                                            </div>
+                                            
+                                        </div>
+                                        {/* script input */}
+                                        <div className="flex flex-col justify-around gap-4 w-full " >
+                                            <textarea  
+                                                className={` w-full bg-transparent max-h-[120px] resize-y outline-none text-black dark:text-slate-50 shadow-xs border-none focus-within:ring-0 focus-within:shadow-2Sxl ring-0 placeholder:text-slate-700 dark:placeholder:text-slate-400 focus:outline-transparent rounded-xl focus:border-transparent textarea   min-h-fit  h-[70px] overflow-y-auto`}  
+                                                onChange={handleTextToSpeechInputChange}
+                                                value={handleTextToSpeechInput}
+                                                placeholder={'Provide script'} 
+                                            ></textarea>
+                                            <div className="flex flex-row justify-between " >
+                                                <small className="text-xs opacity-60 " >{handleTextToSpeechInput.trim().split(/\s+/).length}/762 words remaining</small>
+                                                <button onClick={() => ToongleAddScripts('add')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent  mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Add</button>
+                                            </div>                                            
+                                        </div>
+
+                                        {/* progressLevel buttons */}
+                                        <div className={` flex  flex-wrap mt-auto gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
+                                            {
+                                                PostContentContainer.LoadingVideoList == true ? 
+                                                    <div className="flex flex-col w-full gap-3" >
+                                                        <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                            <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
+                                                        </Typist>
+                                                        <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
+                                                    </div>                                        :
+                                                    <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.Scripts.length != 0} onClick={() => ToongleFirstStepLeveAudioToVideo('Convert')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Convert</button>
+                                            }
+
+                                        </div>
+                                    </div>
+                                    
                                 </div>
-                               
-                            
+                                {/* audio upload container scope */}
+                                <div className={` ${AudioToVideoContainer.Scope == 'AudioUpload' ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit w-full  gap-3 `} >
+                                    <p className=" text-sm py-1 text-black dark:text-slate-100 " >Upload audio(s)</p>
+                                    {/* audios upload container */}
+                                    <div className={` ${!AudioToVideoContainer.ShowAudioToVideoContainer  ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                        <div className={`flex flex-row relative justify-start overflow-hidden sm:pl-8 gap-3 w-full h-[150px] bg-transparent min-h-full`} >
+                                            <input onChange={ToogleAiAudioToVoiceRefUpload} ref={AiAudioToVoiceRef} className=" hidden" accept="audio/*"  type="file" multiple  />
+                                            <div className="flex flex-col gap-2 justify-between w-full pt-2 " >
+                                                <div className={`flex flex-row w-full justify-start py-2 pl-2 sm:w-fit gap-3`}>
+                                                    <button onClick={()=> AiAudioToVoiceRef.current.click()} data-tip="Upload audio"  className={` cursor-pointer tooltip tooltip-right w-10 min-w-10 h-8 shadow-xs rounded-md shadow-slate-200 hover:shadow-slate-500 dark:hover:shadow-slate-200 transition-all duration-300 dark:shadow-slate-500 bg-transparent `} >
+                                                        <BsUpload  className=" my-auto text-sm mx-auto text-slate-200 transition-all duration-300 "  role="button" />
+                                                    </button>
+                                                </div>
+                                                <div className="flex flex-row flex-wrap w-full min-w-full h-fit" >
+                                                    <p disabled={PostContentContainer.LoadingVideoList == true} onClick={() => ClearAudioToVoiceUploadedAudio('clear')} className={` ${PostContentContainer.LoadingVideoList == true ? 'invisible' : 'visible'} dark:text-slate-100 text-slate-500 hover:text-red-200/60 dark:hover:text-red-300/80 transition-all duration-200 underline underline-offset-2 cursor-pointer w-fit ml-auto mr-2 `} >clear</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* audio carousels */}
+                                    <div className={` ${AudioToVideoContainer.ShowAudioToVideoContainer ? 'flex flex-col sm:flex-row' : 'hidden'} gap-1 justify-center sm:pl-8  w-full `} >
+                                        <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
+                                            <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
+                                                <div style={{transform: `translateY(-${SelectedAudioToVideoContainer * 100}%)`}}  className=" rounded-sm flex flex-col h-[150px] max-h-[150px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                                    {MapAudioToVideoContainer}
+                                                </div>
+                                            </div>
+                                            {/* arrow up down div */}
+                                            <div className=" flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base" >
+                                                <IoChevronUpOutline  onClick={() => ScrollSelectedAudioToVideoContainer('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                                <IoChevronDownOutline  onClick={() => ScrollSelectedAudioToVideoContainer('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* progressLevel buttons */}
+                                    <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
+                                        {
+                                            PostContentContainer.LoadingVideoList == true ? 
+                                                <div className="flex flex-col w-full gap-3" >
+                                                    <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                        <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
+                                                    </Typist>
+                                                    <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
+                                                </div>                                        :
+                                                <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.ShowAudioToVideoContainer} onClick={() => ToongleFirstStepLeveAudioToVideo('upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
+                                        }
+
+                                    </div>
+                                </div>
+                                
                             </div>
                             {/* details verification and modifications generation */}
                             <div className={` w-full ${PostContentContainer.FirstStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[350px] min-h-fit  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Verify credibility. Edit if desired</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Verify credibility. Edit if desired</p>
                                 <CodeMirror
                                     value={PostContentContainer.VideoListDetails}
                                     extensions={[
@@ -2306,7 +3003,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     onChange={HandleCodeEditorChange}
                                     height="550px"
                                     theme={Theme == 'dark' ? oneDark : 'light'} // Optional: Set a dark theme
-                                    className=" text-slate-800 dark:text-slate-300 overflow-y-auto w-full max-w-[270px] min-w-full xs:max-w-[300px] "
+                                    className=" text-black dark:text-slate-300 overflow-y-auto w-full max-w-[270px] min-w-full xs:max-w-[300px] "
                                 />
 
                                 {/* progressLevel buttons */}
@@ -2316,7 +3013,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                         PostContentContainer.LoadingVideoList == true ? 
                                             <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                         :
-                                            <button disabled={false} onClick={() => ToongleFirstStepLeve2('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verified</button>
+                                            <button disabled={false} onClick={() => ToongleFirstStepLeve2('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verified</button>
                                     }
 
                                 </div>
@@ -2334,14 +3031,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         {/*Content*/}
                         <div className="collapse-content ">
                              {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-100 duration-300 mx-auto `}>
                                     <li className={`step ${PostContentContainer.SecondStepLevel == 1 ?'step-primary' : PostContentContainer.SecondStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Imaging</li>
                                     <li className={`step ${PostContentContainer.SecondStepLevel == 2 ?'step-primary' : PostContentContainer.SecondStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>voicing</li>
                                 
                             </ul>
                             {/* imaging */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 1 ? 'flex flex-col' : 'hidden'} justify-around h-[200px] min-h-fit  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Create images</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Create images</p>
                                 {/* progressLevel buttons */}
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
@@ -2352,31 +3049,42 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div> :
-                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('CreateTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
+                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('CreateTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
                                     }
                                 </div>
                                 
                             </div>
-                            {/* voicing */}
+                            {/* merging to video */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
                                 {/*image carousels */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Image previews</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Image previews</p>
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
-                                    <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full  max-w-[350px] xs:max-w-xs overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedVideoImageCarousel * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
-                                                {MapImageCarouselsContainer}
-                                            </div>
-                                        </div>
-                                        {/* arrow up down div */}
-                                        <div className={` ${PostContentContainer.VideoListDetailsWithImages.length == 0 ?' invisible' : 'visible'} transition-all duration-300 flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit  min-w-fit dark:text-gray-400 text-slate-700 text-base  `} >
-                                            <IoChevronUpOutline  onClick={() => ScrollVideoImageCarousel('back')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
-                                            <IoChevronDownOutline  onClick={() => ScrollVideoImageCarousel('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
+                                <div className="flex flex-row justify-center sm:justify-start  gap-1 w-full h-fit overflow-hidden sm:mx-0 mx-auto">
+                                    <div className={`${currentContainerHeight} w-[90%] sm:w-full max-w-[350px] xs:max-w-xs mx-auto overflow-hidden`}>
+                                        <div
+                                            style={{ transform: `translateY(-${SelectedVideoImageCarousel * 100}%)` }}
+                                            className={`${currentContainerHeight} rounded-sm flex flex-col w-full  transition-all ease-in-out duration-300 bg-transparent m-auto overflow-y-visible`}
+                                        >
+                                            {MapImageCarouselsContainer}
                                         </div>
                                     </div>
-                                    
+                                    {/* Arrow controls */}
+                                    <div className={`${
+                                            PostContentContainer.VideoListDetailsWithImages.length <= 1 ? "invisible" : "visible"
+                                        } transition-all duration-300 flex flex-col justify-around bg-transparent h-full my-auto gap-4 sm:text-lg w-fit min-w-fit dark:text-gray-400 text-slate-700 text-base`}
+                                        >
+                                        <IoChevronUpOutline
+                                            onClick={() => ScrollVideoImageCarousel("back")}
+                                            className="cursor-pointer hover:text-white bg-transparent transition-all duration-300"
+                                        />
+                                        <IoChevronDownOutline
+                                            onClick={() => ScrollVideoImageCarousel("next")}
+                                            className="cursor-pointer hover:text-white bg-transparent transition-all duration-300"
+                                        />
+                                    </div>
+                                </div>                                    
                                 </div>
-                                <p className={`text-sm py-1 text-slate-800 dark:text-slate-400 `} >Merge images to video</p>
+                                <p className={`text-sm py-1 text-black dark:text-slate-100 `} >Merge images to video</p>
                                 
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     <button disabled={PostContentContainer.LoadingVideoList == true} onClick={() => ToongleSecondProgressLevel('back')} className={`  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Back</button>
@@ -2388,7 +3096,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>                                        :
-                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length == 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
+                                            <button disabled={PostContentContainer.VideoListDetailsWithImages.length == 0} onClick={() => ToongleSecondProgressLevel('MergeTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Merge</button>
                                     }
                                 </div>
                             </div>
@@ -2404,19 +3112,19 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         </div>                        
                         <div className="collapse-content">
                             {/* steps display container */}
-                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-400 duration-300 mx-auto `}>
+                            <ul className= {`steps transition-all w-full gap-4 text-slate-700 dark:text-slate-100 duration-300 mx-auto `}>
                                 <li className={`step ${PostContentContainer.ThirdStepLevel == 1 ?'step-primary' : PostContentContainer.ThirdStepLevel > 1 ? ' step-success' : 'step-neutral' } `}>Confirm</li>
                                 <li className={`step ${PostContentContainer.ThirdStepLevel == 2 ?'step-primary' : PostContentContainer.ThirdStepLevel > 2 ? ' step-success' : 'step-neutral'}  `}>Logs</li>
                             
                             </ul>
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Review your video</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Review your video</p>
                                 
                                 <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
-                                        <div className={`h-full w-[90%] sm:w-full   overflow-hidden`} >
-                                            <div style={{transform: `translateY(-${SelectedAiVideoMergeUrl * 100}%)`}}  className=" rounded-sm flex flex-col h-[250px] max-h-[250px]  w-full mx-auto  transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible " >
+                                        <div className={`h-full w-[90%] sm:w-full overflow-hidden`} >
+                                            <div style={{transform: `translateY(-${SelectedAiVideoMergeUrl * 100}%)`}}  className={`${currentContainerHeightVideoContainer} rounded-sm flex flex-col w-full transition-all ease-in-out m-auto duration-300 bg-transparent  overflow-y-visible `} >
                                                 {MapVideoUrlCarousels}
                                             </div>
                                         </div>
@@ -2426,14 +3134,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             <IoChevronDownOutline  onClick={() => ScrollVideoUrlCarousels('next')} className=" cursor-pointer  hover:text-white bg-transparent transition-all duration-300" />
                                         </div>
                                     </div>
-                                    
                                 </div>
                                 <img className={`${AiVideoMergeUrl.length == 0  ? 'flex mask mask-squircle max-h-80 max-w-80 mx-auto lg:mr-auto lg:ml-0 ' : 'hidden'}`} src={`${import.meta.env.VITE_APP_API_URL}/media/${`media unavailable ${Theme}.jpg`}` || null}  />
                                 
                                 {/* progressLevel buttons */}
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
-                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'flex' : 'hidden'} text-[x-small] text-slate-800 dark:text-slate-400 `} >If not selected you will be prompted to link another account via google</small>
-                                <small onClick={() => SetSelectedtokenPathName('token.json')} className={`${ProfileYoutubeChannels.length != 0 && PostContentContainer.LoadingVideoList == false ? 'flex' : 'hidden'} text-sm text-slate-800 dark:text-slate-400 underline cursor-pointer hover:text-red-800 dark:hover:text-red-300 transition-all duration-200 w-fit `} >clear</small>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Upload to {PostContentContainer.SelectedSocialMediaType}</p>
+                                <small className={`${ProfileYoutubeChannels.length != 0 ? 'hidden' : 'hidden'} text-[x-small] text-black dark:text-slate-100 `} >If not selected you will be prompted to link another account via google</small>
                                 <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
                                     {MapProfileYoutubeChannels}
                                 </div>
@@ -2446,15 +3152,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>                                        :
-                                            <button disabled={false} onClick={() => ToongleThirdProgressLevel('Upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
+                                            <button disabled={false} onClick={() => ToongleThirdProgressLevel('Upload')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Upload</button>
                                     }
                                 </div>
                                 
                             </div>
                             {/* logs from submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
-                                <p className=" text-sm py-1 my-auto text-slate-800 dark:text-slate-400 " >Video successfuly uploaded</p>
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Your uploaded video id</p>
+                                <p className=" text-sm py-1 my-auto text-black dark:text-slate-100 " >Video successfuly uploaded</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Your uploaded video id</p>
                                 
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
@@ -2471,14 +3177,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     </div>
                                     
                                 </div>
-                                <p className=" text-sm py-1 text-slate-800 dark:text-slate-400 " >Clear my files in Mela server</p>
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Clear my files in Mela server</p>
                                 <label className="label cursor-pointer">
-                                    <span className="label-text text-sm text-slate-800 dark:text-slate-400 mx-3">Clear</span>
+                                    <span className="label-text text-sm text-black dark:text-slate-100 mx-3">Clear</span>
                                     <input onChange={ToongleClearServerChange} checked={PostContentContainer.ClearServer} name="ClearServer"  type="checkbox"  className="checkbox rounded-md checkbox-info shadow-xs dark:checked:text-sky-500 shadow-slate-500 dark:shadow-slate-500" />
                                 </label>
                                 {/* progressLevel buttons */}
                                 <div className=" flex flex-row flex-wrap gap-2 mt-4 w-[90%] max-w-[600px] mx-auto justify-around">
-                                    <button disabled={false} onClick={() => ToongleThirdProgressLevel('Reset')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-sky-600/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restart</button>
+                                    <button disabled={false} onClick={() => ToongleThirdProgressLevel('Reset')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restart</button>
                                 </div>
 
                             </div>

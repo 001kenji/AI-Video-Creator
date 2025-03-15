@@ -11,15 +11,19 @@ import {
     UploadAudioToVideoRetryBodyReducer,
     UploadAudioToVideoThrottledBodyReducer,
     MergeAudioToVideoThrottledReducer,
-    MergeAudioToVideoRetryBodyReducer
+    MergeAudioToVideoRetryBodyReducer,
+    UploadAudioToVideoAudiosBodyReducer
     
 }from '../actions/types'
 
 const initialState = {
-    AiVideoMergeUrl : [],
+    AiVideoMergeUrl : [
+        "kenjicladia@gmail.com/youtube/all_for_all_audio_0_with_audio.mp4"
+      ],
     AudioToVideoTranscription : [],
     FullAudioToVideoTranscription : [],
     AudioToVideoTranscriptionStatus : '',
+    AudioToVideovideoType : [],
     ProgressInformation : '',
     RetryRequestScope : null,
     RetryNumberOfRequestMade : 0,
@@ -111,7 +115,15 @@ export default function (state = initialState, action) {
                 ProgressInformation : payload[2],
                 RetryRequestScope : payload[3],
             } 
-     
+        case UploadAudioToVideoAudiosBodyReducer:
+            return {
+                ...state,
+                RetryNumberOfRequestMade : 0,
+                AudioToVideoTranscription : payload[0],
+                FullAudioToVideoTranscription : payload[1],
+                AudioToVideoTranscriptionStatus : payload[2],
+                AudioToVideovideoType : payload[3]
+            }
         default:
             return state
     }

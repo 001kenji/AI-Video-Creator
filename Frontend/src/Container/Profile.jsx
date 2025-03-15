@@ -932,7 +932,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     const MapProfileYoutubeChannels = ProfileYoutubeChannels.map((items, i) => {
         const date = new Date(items.DateCreated  + '+03:00') ;
         return (
-            <div key={i} className="flex flex-col group bg-slate-400 dark:bg-slate-700/40 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start px-2 ">
+            <div key={i} className={` ${items.tokenPath != 'token.json' ? 'flex flex-col' : 'hidden'} group bg-slate-400 dark:bg-slate-700/40 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start px-2 `}>
                 <div className="w-full flex flex-row justify-between ">
                     <p className="text-sm py-1 text-slate-800 dark:text-slate-100">{items.name}</p>
                     <p data-tip={date.toDateString()} className="text-xs py-1 tooltip tooltip-left  cursor-pointer  text-slate-700 dark:text-slate-300 "><TimeUpdater dateString={items.DateCreated} /></p>

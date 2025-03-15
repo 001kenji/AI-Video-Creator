@@ -12,7 +12,8 @@ import {
     UploadAudioToVideoRetryBodyReducer,
     UploadAudioToVideoThrottledBodyReducer,
     MergeAudioToVideoThrottledReducer,
-    MergeAudioToVideoRetryBodyReducer
+    MergeAudioToVideoRetryBodyReducer,
+    UploadAudioToVideoAudiosBodyReducer
 } from './types'
 import Cookies from 'js-cookie'
 
@@ -352,16 +353,13 @@ export const UploadAudioToVideoAudios = (props) => async dispatch => {
                         }else if(jsonData.success) {
                             if (jsonData.data && jsonData.data.length > 0) {
                                 dispatch({
-                                    type: AudioToVideoTranscriptionReducer,
-                                    payload: jsonData.data[0]
-                                });
-                                dispatch({
-                                    type: FullAudioToVideoTranscriptionReducer,
-                                    payload: jsonData.data[1]
-                                });
-                                dispatch({
-                                    type: AudioToVideoTranscriptionStatusReducer,
-                                    payload: 'success'
+                                    type: UploadAudioToVideoAudiosBodyReducer,
+                                    payload: [
+                                        jsonData.data[0],
+                                        jsonData.data[1],
+                                        'success',
+                                        jsonData.video_type_list
+                                    ]
                                 });
                             }
                             dispatch({

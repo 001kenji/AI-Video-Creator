@@ -7,9 +7,9 @@
     content=" 
       script-src 'self' 'nonce-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9==';
       style-src 'self' 'unsafe-inline';
-      connect-src 'self'  http://127.0.0.1:8000 http://192.168.100.4:8000 ws://127.0.0.1:8000 ws://192.168.100.4:8000   ;
-      frame-src http://127.0.0.1:8000 http://192.168.100.4:8000;
-      media-src 'self' http://127.0.0.1:8000 http://192.168.100.4:8000;
+      connect-src 'self'  http://127.0.0.1:8000 http://192.168.56.1:8000 ws://127.0.0.1:8000 ws://192.168.56.1:8000   ;
+      frame-src http://127.0.0.1:8000 http://192.168.56.1:8000;
+      media-src 'self'  blob: data: http://127.0.0.1:8000 http://192.168.56.1:8000;
       " /> 
     
     <script nonce='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9==' src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>

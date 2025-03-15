@@ -1,5 +1,5 @@
 from django.shortcuts import render,HttpResponse
-import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob,textwrap,shutil
+import json,os,datetime,requests,ffmpeg,aiofiles,asyncio,glob,textwrap,shutil,edge_tts
 from django.core.files.storage import default_storage
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -287,7 +287,7 @@ async def get_account(email: str) -> QuerySet:
     return await sync_to_async(Account.objects.filter, thread_sensitive=True)(email=email)
 
 
-def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
+def create_thumbnail(image_url, thumbnail_path, size=(1280, 720)):
     """Create thumbnail from a locally downloaded image file"""
     try:
         print('generating thumbnail')
@@ -312,6 +312,11 @@ def create_thumbnail(image_url, thumbnail_path, size=(128, 128)):
         return False
 
 
+async def Scriptize(script, audio_file_path):
+    """Asynchronously generate TTS audio."""
+    tts = edge_tts.Communicate(script, "en-KE-AsiliaNeural")
+    await tts.save(audio_file_path)  # Save the audio file asynchronously
+
 @method_decorator(csrf_exempt,name='dispatch')
 class MergeView(APIView):
     permission_classes = (IsAuthenticated,)
@@ -325,6 +330,7 @@ class MergeView(APIView):
             dataval = json.loads(data['data'])
             AudioScope = data['AudioScope']
             SocialMediaType = sanitize_string(data['SocialMediaType'])
+            VideosType = sanitize_string(data['VideosType'])
             folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
             
             accountref = Account.objects.filter(email = emailval)
@@ -370,7 +376,7 @@ class MergeView(APIView):
                     with open(filename, "wb") as destination:
                         for chunk in audio.chunks():
                             destination.write(chunk)
-                    custom_storage_audio_list.append(filename)                
+                    custom_storage_audio_list.append(audio.name)                
                 
                     # Extract audio duration
                     audio_clip = AudioFileClip(filename)
@@ -379,7 +385,48 @@ class MergeView(APIView):
                     audio_clip.close()
                     print(f'saved audio {i}/{len(audio_files)} audios')
                     i += 1
-            
+            elif AudioScope == 'TextToSpeech':
+                audio_files = request.data.getlist("audio")
+                if not audio_files or not SocialMediaType or SocialMediaType == '':
+                    return Response({'error': 'Your automated script seams empty. Try other options❌'}, status=400)
+                # Save the audio file
+                audio_duration_list = []
+                custom_storage_audio_list = []
+                async def process_tts_tasks():
+                    
+                    
+                    tasks = []
+                    i = 0
+                    print('beginning:',audio_files)
+                    for data in audio_files:
+                        script = data
+                        splited_audio_name = f'transcripted_audio_{i}'
+                        filename = f'{splited_audio_name}.mp3'
+                        audio_file_path = os.path.join(folder_path,filename)
+                        delete_file(audio_file_path)
+                        # create audio RUN ASYNC
+                        # Create and start the async task
+                        task = Scriptize(script, audio_file_path)
+                        tasks.append(task)  # Store task reference
+                        custom_storage_audio_list.append(filename)   
+
+                    print('transcibing in async')
+                    # Wait for all audio processing tasks to complete concurrently
+                    await asyncio.gather(*tasks)
+
+                print('calling async tts function')
+                async_to_sync(process_tts_tasks)()
+                print('done transcibing')
+                i = 0
+                for data in audio_files:
+                    filename = os.path.join(folder_path,custom_storage_audio_list[i])
+                    # Extract audio duration
+                    audio_clip = AudioFileClip(filename)
+                    audio_duration = audio_clip.duration  # Get duration in seconds
+                    audio_duration_list.append(audio_duration)
+                    audio_clip.close()
+                    print(f'saved audio {i}/{len(audio_files)} audios')
+                    i += 1
             
 
             position = 0
@@ -402,17 +449,22 @@ class MergeView(APIView):
                 
                 
                 # Calculate duration per image
-                duration_per_image = audio_duration / num_images
-                T = audio_duration / num_images
+                # T = audio_duration / num_images
                 transition_duration = 1.0  # duration of each transition in seconds
+                T = (audio_duration + (num_images - 1) * transition_duration) / num_images
                 # List to hold each image clip stream
                 streams = []
-                
+                widthval = 1080 if VideosType == 'shorts' else 1920
+                heightval = 1920 if VideosType == 'shorts' else 1080 
                 # Create an FFmpeg input stream for each image. Each image is looped for T seconds.
                 for i, img in enumerate(image_paths):
                     print(f'\n\n Image path {img}')
                     # For all images we use the same duration (the xfade filter will manage overlapping transitions)
                     # You may adjust duration per image if you want the last image to have no transition.
+                    stream = (
+                        ffmpeg.input(img.replace("\\", "/"), loop=1, t=T)
+                        .video.filter('scale', widthval, heightval)
+                    )
                     stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
                     streams.append(stream)
                 
@@ -432,10 +484,12 @@ class MergeView(APIView):
                 print('\n\n Image streams generated') 
             
                 # Define output video paths
-                if AudioScope == 'AllForAll':
-                    
+                if AudioScope == 'AllForAll' or AudioScope == 'TextToSpeech':
+                    audio_path_val = os.path.join(folder_path,custom_storage_audio_list[position])
                     custom_videos_name = f'all_for_all_audio_{position}'
                 elif AudioScope == 'OneForAll':
+                    audio_path_val = custom_storage_audio_path 
+
                     custom_videos_name = f'one_for_all_audio_{position}'
                 video_no_audio = os.path.join(folder_path,f'{custom_videos_name}_no_audio.mp4')
                 final_video = os.path.join(folder_path,f'{custom_videos_name}_with_audio.mp4')
@@ -456,7 +510,7 @@ class MergeView(APIView):
 
                     # Merge video with audio
                     print('Merge video with audio')
-                    audio_path_val = custom_storage_audio_path if AudioScope == 'OneForAll' else custom_storage_audio_list[position]
+                    
                     (
                         ffmpeg
                         .concat(ffmpeg.input(video_no_audio), ffmpeg.input(audio_path_val), v=1, a=1)
@@ -464,14 +518,14 @@ class MergeView(APIView):
                         .run(overwrite_output=True)
                     )
                 except Exception as e:
-                    raise RetryCustomError("retry", "It seems there is an issue when merging vide❌")
-
+                    # raise RetryCustomError("retry", "It seems there is an issue when merging vide❌")
+                    raise Exception( "It seems there is an issue when merging vide❌")
                 # genearate video thumbnail
                 image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
                 print(image_url_thumbnail) 
-                if image_url_thumbnail != False:
-                    image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT,emailval,'youtube',image_url_thumbnail)
-                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpeg") 
+                if image_url_thumbnail != False and VideosType == 'video':
+                    image_url_thumbnail_val = os.path.join(folder_path,image_url_thumbnail)
+                    thumbnail_path= os.path.join(folder_path,f"{position}_thumbnail.jpg") 
                     #delete an existing thumbnail
                     delete_file(thumbnail_path)
                     print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
@@ -534,8 +588,10 @@ class MergeAudioToVideoView(APIView):
                     yield " " * 4096  + "\n"
                     # Extract image paths
                     image_image_list = items.get("ImageList", "")
+                    videoType_list = items.get("videoType", 'shorts')
+                    videoType = videoType_list
                     audio_name = items.get("audio", "fallback.mp3")
-                    print(image_image_list)
+                    print('data is: ',videoType,'\n from get:',videoType_list)
                     
                     image_paths = [os.path.normpath(os.path.join(settings.MEDIA_ROOT,emailval,SocialMediaType, item.get("name", "").strip())) for item in image_image_list if "name" in item]
 
@@ -553,18 +609,25 @@ class MergeAudioToVideoView(APIView):
                     audio_duration = audio_clip.duration  # Get duration in seconds
                     audio_clip.close()
 
-                    duration_per_image = audio_duration / num_images
-                    T = audio_duration / num_images
+                    
+                    
                     transition_duration = 1.0  # duration of each transition in seconds
+                    # T = audio_duration / num_images
+                    T = (audio_duration + (num_images - 1) * transition_duration) / num_images
                     # List to hold each image clip stream
                     streams = []
-                    
+                    widthval = 1080 if videoType == 'shorts' else 1920
+                    heightval = 1920 if videoType == 'shorts' else 1080 
                     # Create an FFmpeg input stream for each image.
                     for i, img in enumerate(image_paths):
                         print(f'\n\n Image path {img}')
                         yield json.dumps({"progress": f"Processing image"}) + "\n"
                         yield " " * 4096  + "\n"
-                        stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
+                        stream = (
+                            ffmpeg.input(img.replace("\\", "/"), loop=1, t=T)
+                            .video.filter('scale', widthval, heightval)
+                        )
+                        # stream = ffmpeg.input(img.replace("\\", "/"), loop=1, t=T).video
                         streams.append(stream)
                     
                     # Chain the streams using xfade.
@@ -610,15 +673,16 @@ class MergeAudioToVideoView(APIView):
                             .run(overwrite_output=True)
                         )
                     except Exception as e:
-                        raise RetryCustomError("retry", "Seams like there was an error merging your videos❌")
-
+                        # raise RetryCustomError("retry", "Seams like there was an error merging your videos❌")
+                        raise Exception('Seams like there was an error merging your videos❌')
                     # genearate video thumbnail
                     image_url_thumbnail = image_image_list[0]['name'] if image_image_list[0] else False
-                    print(image_url_thumbnail) 
+                    
                 
-                    if image_url_thumbnail != False:
-                        image_url_thumbnail_val = os.path.join(settings.MEDIA_ROOT, emailval, 'youtube', image_url_thumbnail)
-                        thumbnail_path = os.path.join(folder_path, f"{position}_thumbnail.jpeg")
+                    if image_url_thumbnail != False and videoType == 'video':
+                        print(image_url_thumbnail) 
+                        image_url_thumbnail_val = os.path.join(folder_path, image_url_thumbnail)
+                        thumbnail_path = os.path.join(folder_path, f"{position}_thumbnail.jpg")
                         delete_file(thumbnail_path)
                         print('\nconfigs: ', image_url_thumbnail_val, thumbnail_path)
                         yield json.dumps({"progress": "Generating video thumbnail"}) + "\n"
@@ -690,11 +754,12 @@ def transcribe_with_whisper(audio_file_input):
     if response.status_code == 200:
         result = response.json()
         transcript = result.get("transcript", "")
-        print(transcript)
+        # print(transcript)
         return str(transcript)
     else:
         print("Error:", response.status_code, response.text)
         return ''
+
 
 
 async def transcribe_and_split_audio_api(audio_list, num_splits):
@@ -715,7 +780,7 @@ async def transcribe_and_split_audio_api(audio_list, num_splits):
                 continue
 
             # Split transcript into parts
-            print('spliting',type(transcript))
+            # print('spliting',type(transcript))
             full_transciptions.append(transcript)
             words = textwrap.wrap(transcript, width=len(transcript)//num_splits)
             
@@ -776,6 +841,7 @@ class UploadAudioToVideoAudiosView(APIView):
                 
                 # Save the audio file(s)
                 custom_storage_audio_list = []
+                video_type_list = []
                 i = 0
                 for audio in audio_files:
                     filename = os.path.join(folder_path, audio.name)
@@ -788,7 +854,20 @@ class UploadAudioToVideoAudiosView(APIView):
                             "audio_path": filename
                         }
                     custom_storage_audio_list.append(dataval)
-                    print(f'saved audio {i}/{len(audio_files)} audios')
+                    videoType = 'shorts'
+                    try:
+                        # Extract audio duration
+                        audio_clip = AudioFileClip(filename)
+                        audio_duration = audio_clip.duration  # Get duration in seconds
+                        videoType = 'shorts' if int(audio_duration) <= 60 else 'video'
+                        
+                        video_type_list.append(videoType)
+                        audio_clip.close()
+                    except Exception as e:
+                        videoType = 'shorts'
+                        
+                        video_type_list.append(videoType)
+                    print(f'saved audio {i}/{len(audio_files)} audios.Type {videoType}')
                     yield json.dumps({"progress": f"saved audio {i+1}/{len(audio_files)} audios"}) + "\n"
                     i += 1
                 
@@ -810,7 +889,8 @@ class UploadAudioToVideoAudiosView(APIView):
                     return
                 final_response = {
                     'success': 'Successfuly transcribed your audio(s)',
-                    "data": [] if tranascipt_data is None else tranascipt_data
+                    "data": [] if tranascipt_data is None else tranascipt_data,
+                    'video_type_list' : video_type_list
                 }
                 yield json.dumps(final_response) + "\n"
 

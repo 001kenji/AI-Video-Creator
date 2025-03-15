@@ -48,6 +48,6 @@ export const UploadAudioToVideoRetryBodyReducer = 'UploadAudioToVideoRetryBodyRe
 export const UploadAudioToVideoThrottledBodyReducer = 'UploadAudioToVideoThrottledBodyReducer'
 export const MergeAudioToVideoThrottledReducer = 'MergeAudioToVideoThrottledReducer'
 export const MergeAudioToVideoRetryBodyReducer = 'MergeAudioToVideoRetryBodyReducer'
-
+export const UploadAudioToVideoAudiosBodyReducer = 'UploadAudioToVideoAudiosBodyReducer'
 
 
