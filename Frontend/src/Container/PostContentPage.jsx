@@ -30,7 +30,7 @@ import ProfileTestImg from '../assets/images/fallback.jpeg'
 import { useParams } from "react-router-dom";
 
 import NotificationAudio from '../assets/audio/notification.wav'
-import { AiVideoMergeUrlReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
+import { AiVideoMergeUrlReducer, ProfileYoutubeChannelsReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
 // using argon2 pashing for both javascript and py
 //const argon2 = require('argon2');
 const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,UploadAudioToVideoAudios,PromptMergeAudioToVideo}) => {
@@ -81,15 +81,18 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'ShowAudioToVideoContainer' : false,
         'Scope' : '', // TextToSpeech //AudioUpload,
         'TextToSpeechScope' : 'Scripting', //Previewing //Scripting
+        'ScriptingType' : 'UI', //UI //CodeEditor
         'Scripts' : [],
+        'ScriptsEditor' : '',
+        'Validated' : false,
         'ImageList' : [],
         'VideoTypeList' : [],
     })
     const [PostContentContainer,SetPostContentContainer] = useState({
-        'FirstStepLevel' : 2,
-        'SecondStepLevel' : 2,
+        'FirstStepLevel' : 1,
+        'SecondStepLevel' : 1,
         'ThirdStepLevel' : 1,
-        'progressLevel' : 2,
+        'progressLevel' : 1,
         'LoadingVideoList' : false,
         'CustomAiAdioScript' : '',
         'AudioUploadScope' : '',
@@ -97,115 +100,34 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'MaximumSocialMediaSelected' : 1,
         'ModeValue' : 'AI',
         'SocialMediaNumberVideosOptions' : [],
-        'SocialMediaVideosTypeOptions' : [
-            {
-                label: "Youtube shorts",
-            name
-            : 
-            "SocialMediaVideosTypeOptions",
-            value
-            : 
-            "shorts"}],
+        'SocialMediaNumberVideos' : null,
+        'SocialMediaVideosTypeOptions' : [],
         'SocialMediaNumberImagesOptions' : [],
         'VideoAudioModeOptions' : [],
         'VideoAudioModeSelectedOptions' : [],
-        'VideoListDetails' : `[
-  {
-    "snippet": {
-      "title": "Majestic Eagles in Flight",
-      "description": "Witness the breathtaking power and grace of eagles soaring through the skies.  This video captures stunning footage of bald eagles, golden eagles, and other majestic eagle species in their natural habitats. Explore their hunting techniques, aerial acrobatics, and family life.",
-      "tags": [
-        "Bald Eagle",
-        "Golden Eagle",
-        "Eagle Flight",
-        "Wildlife Documentary",
-        "Nature Photography",
-        "Birds of Prey",
-        "Majestic Eagles",
-        "Aerial Views",
-        "Conservation",
-        "Wildlife Conservation",
-        "Endangered Species",
-        "Raptor",
-        "Eagle Hunting",
-        "National Geographic",
-        "Animal Planet",
-        "Documentary Film",
-        "Nature Documentary",
-        "Birds of North America",
-        "Birds of the World",
-        "Stunning Nature",
-        "Breathtaking Scenery"
-      ],
-      "categoryId": "22"
-    },
-    "status": {
-      "privacyStatus": "public",
-      "madeForKids": true,
-      "selfDeclaredMadeForKids": true
-    },
-    "audio": {
-      "script": "Open on a majestic bald eagle soaring high above a pristine mountain range.  The wind whistles past its powerful wings.  Narrator:  Eagles, symbols of freedom and power, dominate the skies.  We'll witness their breathtaking hunting techniques, their intricate family structures, and the challenges they face in the wild.  (Sound of eagle cries, wind, soaring music).  Close up shot of an eagle's eye. Narrator:  With exceptional eyesight, they spot prey from incredible distances.  (Footage of an eagle diving to catch a fish).  Narrator:  Their aerial acrobatics are awe-inspiring, a testament to their evolutionary prowess.  (Montage of various eagle species in flight, hunting, feeding their young).  Narrator:  But their survival is threatened by habitat loss and human encroachment.  Conservation efforts are crucial to protecting these magnificent birds for generations to come. (Show footage of conservationists working, close up of eagle chicks).  Narrator:  Let's celebrate the beauty and power of these majestic creatures and work together to ensure their future."
-    },
-    "ImageList": [
-      {
-        "name": "eagle_soaring.jpg",
-        "description": "A breathtaking image of a bald eagle soaring high above a mountain range, showcasing its powerful wings and majestic presence."
-      }
-    ]
-  }
-]`,
+        'VideoListDetails' : ``,
         'SelectedAudioClassificationOptions' : [],
-        'VideoListDetailsWithImages' :[
-            {
-              "snippet": {
-                "title": "Majestic Eagles in Flight",
-                "description": "Witness the breathtaking power and grace of eagles soaring through the skies.  This video captures stunning footage of bald eagles, golden eagles, and other majestic eagle species in their natural habitats. Explore their hunting techniques, aerial acrobatics, and family life.",
-                "tags": [
-                  "Bald Eagle",
-                  "Golden Eagle",
-                  "Eagle Flight",
-                  "Wildlife Documentary",
-                  "Nature Photography",
-                  "Birds of Prey",
-                  "Majestic Eagles",
-                  "Aerial Views",
-                  "Conservation",
-                  "Wildlife Conservation",
-                  "Endangered Species",
-                  "Raptor",
-                  "Eagle Hunting",
-                  "National Geographic",
-                  "Animal Planet",
-                  "Documentary Film",
-                  "Nature Documentary",
-                  "Birds of North America",
-                  "Birds of the World",
-                  "Stunning Nature",
-                  "Breathtaking Scenery"
-                ],
-                "categoryId": "22"
-              },
-              "status": {
-                "privacyStatus": "public",
-                "madeForKids": true,
-                "selfDeclaredMadeForKids": true
-              },
-              "audio": {
-                "script": "Open on a majestic bald eagle soaring high above a pristine mountain range.  The wind whistles past its powerful wings.  Narrator:  Eagles, symbols of freedom and power, dominate the skies.  We'll witness their breathtaking hunting techniques, their intricate family structures, and the challenges they face in the wild.  (Sound of eagle cries, wind, soaring music).  Close up shot of an eagle's eye. Narrator:  With exceptional eyesight, they spot prey from incredible distances.  (Footage of an eagle diving to catch a fish).  Narrator:  Their aerial acrobatics are awe-inspiring, a testament to their evolutionary prowess.  (Montage of various eagle species in flight, hunting, feeding their young).  Narrator:  But their survival is threatened by habitat loss and human encroachment.  Conservation efforts are crucial to protecting these magnificent birds for generations to come. (Show footage of conservationists working, close up of eagle chicks).  Narrator:  Let's celebrate the beauty and power of these majestic creatures and work together to ensure their future."
-              },
-              "ImageList": [
-                {
-                  "name": "eagle_soaring.jpg",
-                  "description": "A breathtaking image of a bald eagle soaring high above a mountain range, showcasing its powerful wings and majestic presence."
-                }
-              ]
-            }
-          ],
+        'VideoListDetailsWithImages' :[],
         'UploadedVideoId' : [],
-        'ClearServer' : true
+        'ClearServer' : true,
+        
     })
-    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
+    const [ImageRecreationContainer,SetImageRecreationContainer] = useState({
+        'ShowRecreatedImages' : false,
+        'RecreatedVideoListDetailsWithImages' : [],
+        'FailedVideoListDetailsWithImages' : []
+    })
+    const [ImagePreviewContainer,SetImagePreviewContainer] = useState({
+        'Show' : false,
+        'url' : null,
+        'ImageType' : 'shorts'
+    })
+    const [DoNotDisturbContainer,SetDoNotDisturbContainer] = useState({
+        'isChecked' : false,
+        'Shutdown' : false,
+    })
+    const [TriggerDoNotDisturb,SetTriggerDoNotDisturb] = useState('')
+    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -261,7 +183,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     // Determine the fixed height based on the current carousel type
     const currentCarousel = PostContentContainer.VideoListDetailsWithImages[SelectedVideoImageCarousel];
     const currentImagType = AiPageSelected === 'ImageToVideo'
-        ? PostContentContainer.SocialMediaVideosTypeOptions[0] ?PostContentContainer.SocialMediaVideosTypeOptions[0].value : 'shorts'
+        ? PostContentContainer.SocialMediaVideosTypeOptions.length != 0 ?PostContentContainer.SocialMediaVideosTypeOptions[0].value : 'shorts'
         : currentCarousel ? currentCarousel.videoType : 'shorts';
     
     // Set the outer container height based on the type.
@@ -299,18 +221,36 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Videos crated successfuly'
             })
+            
             SetSelectedVideoImageCarousel(0)
             PlayNotifiactions('play')
             setTimeout(() => {
-                SetPostContentContainer((e)=> {
-                    return {
-                        ...e,
-                        'SecondStepLevel' : 2,
-                        'progressLevel' : 3,
-                        'ThirdStepLevel' : 1,
-                        'LoadingVideoList' : false
-                    }
-                })
+                if(DoNotDisturbContainer.isChecked){
+                    SetPostContentContainer((e)=> {
+                        return {
+                            ...e,
+                            'SecondStepLevel' : 2,
+                            'progressLevel' : 3,
+                            'ThirdStepLevel' : 1,
+                            'LoadingVideoList' : true
+                        }
+                    })
+                    // console.log('running dnd')
+                    SetTriggerDoNotDisturb('Upload')
+                    
+                }else{
+                    SetPostContentContainer((e)=> {
+                        return {
+                            ...e,
+                            'SecondStepLevel' : 2,
+                            'progressLevel' : 3,
+                            'ThirdStepLevel' : 1,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                }
+                
+                
             }, 2000);
             
         }else if((RetryRequestScope == 'MergeAudioToVideoThrottled' || RetryRequestScope == 'failedMergeAudioToVideoRetry') && AiVideoMergeUrl.length == 0 ){
@@ -448,7 +388,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             var lengthval = AudioToVideoContainer.audioFiles.length
             var promptConstructed = {
                 'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object . each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
+                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object.let it be an array even if it has ${lengthval} . each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
                
             }
             dispatch({
@@ -572,6 +512,40 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         }
     },[PostContentContainer.VideoAudioModeOptions,AudioUpload,OneForAllAudioUpload])
 
+    useEffect(() =>{
+        if(TriggerDoNotDisturb == 'VerifyPreview'){
+            setTimeout(() => {
+                ToongleFirstStepLeveAudioToVideo('VerifyPreview')  
+            }, 3000);  
+        }else if(TriggerDoNotDisturb == 'Convert'){
+            setTimeout(() => {
+                ToongleFirstStepLeveAudioToVideo('Convert') 
+           }, 3000);
+        }else if(TriggerDoNotDisturb == 'NextVoiceToVideo'){
+            setTimeout(() => {
+                ToongleFirstStepLeve2('next','VoiceToVideo')
+            }, 3000);
+        }else if(TriggerDoNotDisturb == 'NextImageToVideo'){
+            setTimeout(() => {
+               ToongleFirstStepLeve2('next','ImageToVideo') 
+            }, 3000);
+            
+        }else if(TriggerDoNotDisturb == 'MergeTranscript'){
+            setTimeout(() => {
+                ToongleSecondProgressLevel('MergeTranscript')
+            }, 3000);
+        }else if(TriggerDoNotDisturb == 'RecreateTranscript'){
+            setTimeout(() => {
+                ToongleSecondProgressLevel('RecreateTranscript')
+            }, 3000);
+        }else if (TriggerDoNotDisturb == 'Upload'){
+            ToongleThirdProgressLevel('Upload')
+        }else if(TriggerDoNotDisturb == 'Reset'){
+            setTimeout(() => {
+                ToongleThirdProgressLevel('Reset')
+            }, 3000);
+        }
+    },[TriggerDoNotDisturb])
     const customTagSelectorTheme = (theme, mode = "light") => ({
         ...theme,
         colors: {
@@ -733,649 +707,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 })
             }
     } 
-   
-    const requestWsStream = (msg = null,body = null,NumberOfRequestRetry = 0) => {    
-       
-        if(msg =='open'){
-            
-            if(WsDataStream.current != null ){
-                WsDataStream.current.close(1000,'Opening another socket for less ws jam')
-
-            }
-            WsDataStream.current =  new WebSocket(`ws:/${import.meta.env.VITE_WS_API}/ws/ai/${UserEmail}/`);
-
-        }
-         if(msg == 'close'){
-            if(WsDataStream.current != null ){
-                WsDataStream.current.close(1000,'usefull eminent')
-
-            }
-        }
-       
-        WsDataStream.current.onmessage = function (e) {
-          var data = JSON.parse(e.data)
-            PlayNotifiactions('play')
-            if(data.type == 'RequestAIResponse') {
-                var val = data.message
-                if (val['type'] == 'success') {
-                    var Listval = val['result']
-                    
-                    var videoList = JSON.stringify(Listval , null, 2);
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Successfuly generated'
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'VideoListDetails' : videoList,
-                                'LoadingVideoList' : false,
-                                'FirstStepLevel' : 2,
-                                'progressLevel' : 1,
-                            }
-                        })
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : ''
-                        })
-                    }, 2000);
-                    
-                }else if (val['type'] == 'retry'){
-                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                    var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < MaximumRetryNumber){
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                        })
-                        var promptConstructed = {
-                            'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                            'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects based on this idea '${getValues('AIprompt')} ' `,
-                           
-                        }
-                        
-                        setTimeout(() => {
-                            requestWsStream('RequestAIResponse',promptConstructed,nextNum)
-                        }, 4000);
-                    }else {
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : 'Maximum number of retry reached. Try again later'
-                        })
-                        setTimeout(() => {
-                            SetPostContentContainer((e) => {
-                                return {
-                                    ...e,
-                                    'LoadingVideoList' : false,
-                                    'FirstStepLevel' : 1,
-                                    'progressLevel' : 1,
-                                }
-                            })
-                        }, 4000);
-                    }
-                    
-                }else {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'LoadingVideoList' : false,
-                            'FirstStepLevel' : 1,
-                            'progressLevel' : 1,
-                        }
-                    })
-                    ShowToast(val['type'],val['result'])
-                }
-            
-            }else if(data.type == 'RequestAITranscriptResponse') {
-            var val = data.message
-            if (val['type'] == 'success') {
-                var Listval = val['result']
-                if(Listval.length != AudioToVideoTranscription.length){
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'LoadingVideoList' : false,
-                            'FirstStepLevel' : 1,
-                            'progressLevel' : 1,
-                        }
-                    })
-                    console.log('mismatch',Listval,AudioToVideoTranscription)
-                    ShowToast('warning',"Seams there is no cosistensy between transcripts and videos")
-                    return
-                }
-                for (let i = 0; i < Listval.length; i++) {
-                    Listval[i]['ImageList'] = AudioToVideoTranscription[i]
-                    Listval[i]['audio'] = AudioToVideoContainer.audioFiles[i].name
-                    Listval[i]['videoType'] = AudioToVideovideoTypeList[i] ? AudioToVideovideoTypeList[i] : 'shorts'
-                }
-                var videoList = JSON.stringify(Listval , null, 2);
-                dispatch({
-                    type :ProgressInformationReducer,
-                    payload : 'Data generated. '
-                })
-                setTimeout(() => {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'VideoListDetails' : videoList,
-                            'LoadingVideoList' : false,
-                            'FirstStepLevel' : 2,
-                            'progressLevel' : 1,
-                        }
-                    })
-                }, 2000);
-                
-            }else if (val['type'] == 'retry'){
-                var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                var nextNum = Number(NumberOfRequestRetry) + 1
-                if(NumberOfRequestRetry < MaximumRetryNumber){
-                    console.log(NumberOfRequestRetry)
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                    })
-                    
-                    var promptConstructed = {
-                        'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                        'prompt' : ` Generate an array of strictly ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
-                       
-                    }
-                    setTimeout(() => {
-                        requestWsStream('RequestAITranscriptResponse',promptConstructed,nextNum)
-                    }, 4000);
-                }else {
-                    console.log(NumberOfRequestRetry)
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Maximum number of retry reached. Try again later'
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'LoadingVideoList' : false,
-                                'FirstStepLevel' : 1,
-                                'progressLevel' : 1,
-                            }
-                        })
-                    }, 4000);
-                }
-                
-            }else {
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'LoadingVideoList' : false,
-                        'FirstStepLevel' : 1,
-                        'progressLevel' : 1,
-                    }
-                })
-                ShowToast(val['type'],val['result'])
-            }
-
-            }else if(data.type == 'RequestAITTSResponse') {
-                var val = data.message
-                if (val['type'] == 'success') {
-                    var Listval = val['result']
-                    if(Listval.length != AudioToVideoContainer.ImageList.length){
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'LoadingVideoList' : false,
-                                'FirstStepLevel' : 1,
-                                'progressLevel' : 1,
-                            }
-                        })
-                        console.log('mismatch',Listval,AudioToVideoContainer.ImageList)
-                        ShowToast('warning',"Seams there is no cosistensy between transcripts and videos")
-                        return
-                    }
-                    for (let i = 0; i < Listval.length; i++) {
-                        Listval[i]['ImageList'] = AudioToVideoContainer.ImageList[i]
-                        Listval[i]['audio'] = AudioToVideoContainer.AudioNameList[i]
-                        Listval[i]['videoType'] = AudioToVideoContainer.VideoTypeList[i] ? AudioToVideoContainer.VideoTypeList[i] : 'shorts'
-                    }
-                    var videoList = JSON.stringify(Listval , null, 2);
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Data generated. '
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'VideoListDetails' : videoList,
-                                'LoadingVideoList' : false,
-                                'FirstStepLevel' : 2,
-                                'progressLevel' : 1,
-                            }
-                        })
-                    }, 2000);
-                    
-                }else if (val['type'] == 'retry'){
-                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                    var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < MaximumRetryNumber){
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                        })
-                        
-                        var promptConstructed = {
-                            'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                            'prompt' : ` Generate an array of strictly ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${FullAudioToVideoTranscription}  ' `,
-                           
-                        }
-                        setTimeout(() => {
-                            requestWsStream('RequestAITranscriptResponse',promptConstructed,nextNum)
-                        }, 4000);
-                    }else {
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : 'Maximum number of retry reached. Try again later'
-                        })
-                        setTimeout(() => {
-                            SetPostContentContainer((e) => {
-                                return {
-                                    ...e,
-                                    'LoadingVideoList' : false,
-                                    'FirstStepLevel' : 1,
-                                    'progressLevel' : 1,
-                                }
-                            })
-                        }, 4000);
-                    }
-                    
-                }else {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'LoadingVideoList' : false,
-                            'FirstStepLevel' : 1,
-                            'progressLevel' : 1,
-                        }
-                    })
-                    ShowToast(val['type'],val['result'])
-                }
-    
-            }else if(data.type == 'RequestCreateImages'){
-                var val = data.message
-                if (val['type'] == 'success') {
-                    
-                    // console.log(typeof(videoList),videoList)
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Images created successfuly'
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'VideoListDetailsWithImages' : val['data'],
-                                'LoadingVideoList' : false,
-                                'SecondStepLevel' : 2,
-                                'progressLevel' : 2,
-                            }
-                        })
-                    }, 2000);
-                    
-                    // ShowToast(val['type'],val['result'])
-                }else if (val['type'] == 'retry'){
-                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                    var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < MaximumRetryNumber){
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                        })
-                        
-                        
-                        setTimeout(() => {
-                            requestWsStream('RequestCreateImages',null,nextNum)
-                        }, 4000);
-                    }else {
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : 'Maximum number of retry reached. Try again later'
-                        })
-                        setTimeout(() => {
-                            SetPostContentContainer((e) => {
-                                return {
-                                    ...e,
-                                    'LoadingVideoList' : false,
-                                    'SecondStepLevel' : 1,
-                                    'progressLevel' : 2,
-                                }
-                            })
-                        }, 4000);
-                    }
-                    
-                }else {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'LoadingVideoList' : false,
-                            'SecondStepLevel' : 1,
-                            'progressLevel' : 2,
-                        }
-                    })
-                    ShowToast(val['type'],val['result'])
-                }
-            }else if(data.type == 'RequestCreateImagesTranscript'){
-                var val = data.message
-                if (val['type'] == 'success') {
-
-                // console.log(typeof(videoList),videoList)
-                dispatch({
-                    type :ProgressInformationReducer,
-                    payload : 'Images created successfuly'
-                })
-                setTimeout(() => {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'VideoListDetailsWithImages' : val['data'],
-                            'LoadingVideoList' : false,
-                            'SecondStepLevel' : 2,
-                            'progressLevel' : 2,
-                        }
-                    })
-                }, 2000);
-                // ShowToast(val['type'],val['result'])
-                }else if (val['type'] == 'retry'){
-                    var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                    var nextNum = Number(NumberOfRequestRetry) + 1
-                    if(NumberOfRequestRetry < MaximumRetryNumber){
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                        })
-                        
-                        
-                        setTimeout(() => {
-                            requestWsStream('RequestCreateImagesTranscript',null,nextNum)
-                        }, 4000);
-                    }else {
-                        console.log(NumberOfRequestRetry)
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : 'Maximum number of retry reached. Try again later'
-                        })
-                        setTimeout(() => {
-                            SetPostContentContainer((e) => {
-                                return {
-                                    ...e,
-                                    'LoadingVideoList' : false,
-                                    'SecondStepLevel' : 1,
-                                    'progressLevel' : 2,
-                                }
-                            })
-                        }, 4000);
-                    }
-                    
-                }else {
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'LoadingVideoList' : false,
-                        'SecondStepLevel' : 1,
-                        'progressLevel' : 2,
-                    }
-                })
-                ShowToast(val['type'],val['result'])
-                }
-            }else if(data.type == 'RequestUploadVideos'){
-            var val = data.message
-            if (val['type'] == 'success') {
-                //console.log(val)
-                // console.log(typeof(videoList),videoList)
-                dispatch({
-                    type :ProgressInformationReducer,
-                    payload : 'Videos uploaded successfuly.✅'
-                })
-                setTimeout(() => {
-                    SetPostContentContainer((e) => {
-                        return {
-                            ...e,
-                            'ThirdStepLevel' : 2,
-                            'progressLevel' : 3,
-                            'LoadingVideoList' : false,
-                            'UploadedVideoId' : val.video_id
-                        }
-                    })
-                }, 2000);
-               
-                dispatch({
-                    type : AiVideoMergeUrlReducer,
-                    payload : []
-                })
-                ShowToast(val['type'],val['result'])
-                if(db != null){
-                    var data = {
-                        'scope' : 'ReadProfile',
-                        'AccountEmail' : UserEmail,
-                        'AccountID' : extrainfo,
-                        'IsOwner' : true,
-                    }
-                    FetchUserProfile(JSON.stringify([data]))
-                }  
-            }else if (val['type'] == 'retry'){
-                var NumberOfRequestRetry =  val['NumberOfRequestRetry']
-                var nextNum = Number(NumberOfRequestRetry) + 1
-                if(NumberOfRequestRetry < MaximumRetryNumber){
-                    console.log(NumberOfRequestRetry)
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : `${val['result']}. Retrying your request ${NumberOfRequestRetry}/${MaximumRetryNumber}`
-                    })
-                    
-                    var mediaType = PostContentContainer.SelectedSocialMediaType
-                    setTimeout(() => {
-                        requestWsStream('RequestUploadVideos',mediaType,nextNum)
-                    }, 4000);
-                }else {
-                    console.log(NumberOfRequestRetry)
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Maximum number of retry reached. Try again later'
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'LoadingVideoList' : false,
-                                'ThirdStepLevel' : 1,
-                                'progressLevel' : 3,
-                            }
-                        })
-                    }, 4000);
-                }
-                
-            }else {
-                SetPostContentContainer((e) => {
-                    return {
-                        ...e,
-                        'ThirdStepLevel' : 1,
-                        'progressLevel' : 3,
-                        'LoadingVideoList' : false
-                    }
-                })
-                ShowToast(val['type'],val['result'])
-            }
-            }else if(data.type == 'RequestClearServer'){
-                var val = data.message
-                ShowToast(val['type'],val['result'])
-            }else if(data.type == 'RequestTextToSpeech'){
-                var val = data.message
-                if (val['type'] == 'success') {
-                    dispatch({
-                        type :ProgressInformationReducer,
-                        payload : 'Successfuly generated audio'
-                    })
-                    setTimeout(() => {
-                        SetPostContentContainer((e) => {
-                            return {
-                                ...e,
-                                'LoadingVideoList' : false,
-                                'FirstStepLevel' : 1,
-                                'progressLevel' : 1,
-                            }
-                        })
-                        SetAudioToVideoContainer((e) => {
-                            return {
-                                ...e,
-                                'TextToSpeechScope' : 'Previewing',
-                                'AudioNameList' : val['AudioNameList'],
-                                'ImageList' : val['ImageList'],
-                                'VideoTypeList' : val['VideoTypeList'],
-                                'TextToSpeechAudioList' : val['AudioList'],
-                                'Scope' : 'TextToSpeech'
-                            }
-                        })
-                        dispatch({
-                            type :ProgressInformationReducer,
-                            payload : ''
-                        })
-                    }, 2000);
-                    
-                }else if (val['type'] == 'error') {
-                    SetPostContentContainer((e)=> {
-                        return {
-                            ...e,
-                            'FirstStepLevel' : 1,
-                            'progressLevel' :  1,
-                            'LoadingVideoList' : false
-                        }
-                    })
-                    SetAudioToVideoContainer((e) => {
-                        return {
-                            ...e,
-                            'TextToSpeechScope' : 'Scripting',
-                            'Scripts' : [],
-                            'TextToSpeechAudioList' : [],
-                            'Scope' : 'TextToSpeech'
-                        }
-                    })
-                    ShowToast(val['type'],val['result'])
-                }
-            }
-        };
-        WsDataStream.current.onopen = (e) => {
-            // websocket is opened
-            SetPostContentContainer((e) => {
-                return {
-                    ...e,
-                    'LoadingVideoList' : false
-                }
-            })
-            
-        }
-        WsDataStream.current.onclose = function (e) {
-          
-        }
-        if(WsDataStream.current.readyState === WsDataStream.current.OPEN){
-            if(msg == 'RequestAIResponse') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestAIResponse',
-                        'email' : UserEmail,
-                        'prompt' : body,
-                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
-                    })
-                )
-            }else if(msg == 'RequestAITranscriptResponse') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestAITranscriptResponse',
-                        'email' : UserEmail,
-                        'prompt' : body,
-                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
-                    })
-                )
-            }else if(msg == 'RequestAITTSResponse') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestAITTSResponse',
-                        'email' : UserEmail,
-                        'prompt' : body,
-                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
-                    })
-                )
-            }else if(msg == 'RequestCreateImages') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestCreateImages',
-                        'email' : UserEmail,
-                        'prompt' : PostContentContainer.VideoListDetails,
-                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry,
-                        'VideosType' : PostContentContainer.SocialMediaVideosTypeOptions[0].value
-                    })
-                )
-            }else if(msg == 'RequestCreateImagesTranscript') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestCreateImagesTranscript',
-                        'email' : UserEmail,
-                        'prompt' : PostContentContainer.VideoListDetails,
-                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
-                    })
-                )
-            }else if(msg == 'RequestUploadVideos') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestUploadVideos',
-                        'email' : UserEmail,
-                        'prompt' : PostContentContainer.VideoListDetailsWithImages,
-                        'VideoUrl' : AiVideoMergeUrl,
-                        'SocialMediaType' : body,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry,
-                        'tokenPathName' : SelectedtokenPathName
-                    })
-                )
-            }else if(msg == 'RequestClearServer') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestClearServer',
-                        'email' : UserEmail,
-                        'NumberOfRequestRetry' : NumberOfRequestRetry
-                    })
-                )
-            }else if(msg == 'RequestTextToSpeech') {
-                
-                WsDataStream.current.send(
-                    JSON.stringify({
-                        'message' : 'RequestTextToSpeech',
-                        'email' : UserEmail,
-                        'Data' : AudioToVideoContainer.Scripts,
-                        'NumberOfImages':PostContentContainer.SocialMediaNumberImagesOptions[0].value,
-                        'SocialMediaType':PostContentContainer.SelectedSocialMediaType
-                    })
-                )
-            }
-        }
-        
-    } 
-    
     function ToongleFirstStepLevel(props) {
         if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
             ShowToast('warning','Login to proceed')
@@ -1394,7 +725,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     })
                     var promptConstructed = {
                         'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                        'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects based on this idea '${getValues('AIprompt')} ' `,
+                        'prompt' : ` Generate an array of ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} objects.let it be an array even if it has ${PostContentContainer.SocialMediaNumberVideosOptions[0].value} object. based on this idea '${getValues('AIprompt')} ' `,
                        
                     }
                     dispatch({
@@ -1429,75 +760,6 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
         }
     }
-    function ToongleFirstStepLeve2(props) {
-        if(props == 'next'){
-            SetPostContentContainer((e)=> {
-                return {
-                    ...e,
-                    'SecondStepLevel' : 1,
-                    'progressLevel' : 2,
-                    'LoadingVideoList' : false
-                }
-            })
-            
-        }else if(props == 'back'){
-            SetPostContentContainer((e)=> {
-                return {
-                    ...e,
-                    'FirstStepLevel' : 1,
-                    'progressLevel' : 1,
-                    'LoadingVideoList' : false
-                }
-            })
-        }
-    }
-    function ResetPostContentContainer (props){
-        if(props != null){
-            SetPostContentContainer({
-                'FirstStepLevel' : 1,
-                'SecondStepLevel' : 1,
-                'ThirdStepLevel' : 1,
-                'progressLevel' : 1,
-                'LoadingVideoList' : false,
-                'CustomAiAdioScript' : '',
-                'SelectedSocialMediaType' : 'youtube',
-                'MaximumSocialMediaSelected' : 1,
-                'ModeValue' : 'AI',
-                'SocialMediaNumberVideosOptions' : [],
-                'SocialMediaNumberImagesOptions' : [],
-                'VideoAudioModeOptions' : [],
-                'VideoAudioModeSelectedOptions' : [],
-                'VideoListDetails' : '',
-                'SelectedAudioClassificationOptions' : [],
-                'VideoListDetailsWithImages' : [],
-                'UploadedVideoId' : [],
-                'ClearServer' : true
-                
-            })
-            reset()
-            if(AiPageSelected == 'VoiceToVideo'){
-                SetAudioToVideoContainer((e) => {
-                    return  {
-                        ...e,
-                        'audioFiles' : [],
-                        'ShowAudioToVideoContainer' : false               
-                    }
-                })
-                    
-            }
-
-        }
-    }
-    function ToongleAiPageSelected (props) {
-        if(props != null){
-            if(AiPageSelected != props){
-                SetAiPageSelected(props)
-                ResetPostContentContainer('reset')
-            }
-            
-        }
-    }
-  
     function ToongleSecondProgressLevel(props) {
         dispatch({
             type :RetryNumberOfRequestMadeReducer,
@@ -1526,8 +788,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Creating your images. Once created they will be saved. Please hold '
             })
-            requestWsStream('RequestCreateImages',null,0)
-        }if(props == 'CreateTranscript'){
+            requestWsStream('RequestCreateImages',PostContentContainer.VideoListDetails,false)
+        }else if(props == 'CreateTranscript'){
             SetPostContentContainer((e)=> {
                 return {
                     ...e,
@@ -1541,7 +803,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type :ProgressInformationReducer,
                 payload : 'Creating your images. Once created they will be saved. Please hold '
             })
-            requestWsStream('RequestCreateImagesTranscript')
+            var bodyval = PostContentContainer.VideoListDetails
+            requestWsStream('RequestCreateImagesTranscript',bodyval,false)
         }else if(props == 'Merge'){
             if(PostContentContainer.SocialMediaVideosTypeOptions.length == 0){
                 ShowToast('warning','Select type of youtube video')
@@ -1620,8 +883,1006 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : false
                 }
             })
+        }else if(props == 'Recreate'){
+            
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'SecondStepLevel' : 1,
+                    'progressLevel' : 2,
+                    'LoadingVideoList' : true,
+                    'VideoListDetailsWithImages' : []
+                }
+            })
+            SetImageRecreationContainer((e) => {
+                return {
+                    ...e,
+                    'ShowRecreatedImages' : true,
+                }
+            })
+            dispatch({
+                type :ProgressInformationReducer,
+                payload : `Recreating your images for ${ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s). Once created they will be saved. Please hold `
+            })
+            var bodyToPass = JSON.stringify(ImageRecreationContainer.FailedVideoListDetailsWithImages , null, 2);
+            requestWsStream('RequestCreateImages',bodyToPass,true)
+        }else if(props == 'AbandoneCreate'){
+            
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        'VideoListDetailsWithImages' : ImageRecreationContainer.RecreatedVideoListDetailsWithImages,
+                        'LoadingVideoList' : false,
+                        'SecondStepLevel' : 2,
+                        'progressLevel' : 2,
+                    }
+                })
+                SetImageRecreationContainer((e) => {
+                    return {
+                        ...e,
+                        'FailedVideoListDetailsWithImages' : [],
+                        'RecreatedVideoListDetailsWithImages' : [],
+                        'ShowRecreatedImages' : false
+                    }
+                })
+        }else if(props == 'RecreateTranscript'){
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'SecondStepLevel' : 1,
+                    'progressLevel' : 2,
+                    'LoadingVideoList' : true,
+                    'VideoListDetailsWithImages' : []
+                }
+            })
+            dispatch({
+                type :ProgressInformationReducer,
+                payload : `Recreating your images for ${ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s). Once created they will be saved. Please hold `
+            })
+            var bodyToPass = JSON.stringify(ImageRecreationContainer.FailedVideoListDetailsWithImages , null, 2);
+            requestWsStream('RequestCreateImagesTranscript',bodyToPass,true)
+        }
+     
+    }
+    function ToongleFirstStepLeve2(props,scope = null) {
+        if(props == 'next'){
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'SecondStepLevel' : 1,
+                    'progressLevel' : 2,
+                    'LoadingVideoList' : false
+                }
+            })
+            SetImageRecreationContainer((e)=> {
+                return {
+                    ...e,
+                    'FailedVideoListDetailsWithImages' : [],
+                    'RecreatedVideoListDetailsWithImages' : [],
+                    'ShowRecreatedImages' : false
+                }
+            })
+            SetImagePreviewContainer((e) => {
+                return {
+                    ...e,
+                    'Show' : false,
+                    'url' : null,
+                    'ImageType' : 'shorts'
+                }
+            })
+            if(DoNotDisturbContainer.isChecked){
+                console.log('running dnd')
+                if(scope == 'ImageToVideo'){
+                    ToongleSecondProgressLevel('Create')
+                    
+                }else if (scope == 'VoiceToVideo'){
+                    console.log('running dnd')
+                    ToongleSecondProgressLevel('CreateTranscript') 
+                    
+                }
+                
+            }
+        }else if(props == 'back'){
+            SetPostContentContainer((e)=> {
+                return {
+                    ...e,
+                    'FirstStepLevel' : 1,
+                    'progressLevel' : 1,
+                    'LoadingVideoList' : false
+                }
+            })
         }
     }
+    
+    const requestWsStream = (msg = null,body = null,additionalInfo = null) => {    
+       
+        if(msg =='open'){
+            
+            if(WsDataStream.current != null ){
+                WsDataStream.current.close(1000,'Opening another socket for less ws jam')
+
+            }
+            WsDataStream.current =  new WebSocket(`ws:/${import.meta.env.VITE_WS_API}/ws/ai/${UserEmail}/`);
+
+        }
+         if(msg == 'close'){
+            if(WsDataStream.current != null ){
+                WsDataStream.current.close(1000,'usefull eminent')
+
+            }
+        }
+       
+        WsDataStream.current.onmessage = function (e) {
+          var data = JSON.parse(e.data)
+            
+            if(data.type == 'RequestAIResponse') {
+                PlayNotifiactions('play')
+                var val = data.message
+                if (val['type'] == 'success') {
+                    var Listval = val['result']
+                    
+                    var videoList = JSON.stringify(Listval , null, 2);
+                    
+                    if(DoNotDisturbContainer.isChecked){
+                        // console.log('running dnd')
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'VideoListDetails' : videoList,
+                                'LoadingVideoList' : true,
+                                'FirstStepLevel' : 2,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Successfuly generated.Generating your images in 3 seconds'
+                        })                      
+                        SetTriggerDoNotDisturb('NextImageToVideo')    
+                        
+                        
+                    }else{
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Successfuly generated'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetails' : videoList,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 2,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : ''
+                            })
+                            
+                        }, 2000);
+                    }
+                    
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'LoadingVideoList' : false,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' : 1,
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+            
+            }else if(data.type == 'RequestAITranscriptResponse') {
+                PlayNotifiactions('play')
+                var val = data.message
+                if (val['type'] == 'success') {
+                    var Listval = val['result']
+                    if(Listval.length != AudioToVideoTranscription.length){
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        console.log('mismatch',Listval,AudioToVideoTranscription)
+                        ShowToast('warning',"Seams there is no cosistensy between transcripts and videos")
+                        return
+                    }
+                    for (let i = 0; i < Listval.length; i++) {
+                        Listval[i]['ImageList'] = AudioToVideoTranscription[i]
+                        Listval[i]['audio'] = AudioToVideoContainer.audioFiles[i].name
+                        Listval[i]['videoType'] = AudioToVideovideoTypeList[i] ? AudioToVideovideoTypeList[i] : 'shorts'
+                    }
+                    var videoList = JSON.stringify(Listval , null, 2);
+                    if(DoNotDisturbContainer.isChecked){
+                        // console.log('running dnd')
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Data generated. Generating images in  seconds'
+                        })
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'VideoListDetails' : videoList,
+                                'LoadingVideoList' : true,
+                                'FirstStepLevel' : 2,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        SetTriggerDoNotDisturb('NextVoiceToVideo')
+                        
+                    }else{
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Data generated. '
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetails' : videoList,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 2,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            
+                        }, 2000);
+                    }
+                    
+                    
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'LoadingVideoList' : false,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' : 1,
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+
+            }else if(data.type == 'RequestAITTSResponse') {
+                var val = data.message
+                PlayNotifiactions('play')
+                if (val['type'] == 'success') {
+                    var Listval = val['result']
+                    if(Listval.length != AudioToVideoContainer.ImageList.length){
+                        if(DoNotDisturbContainer.isChecked){
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Seams there is no cosistensy between transcripts and videos. Recreating audios transcriptions in 3 seconds'
+                            })
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : true,
+                                    'FirstStepLevel' : 1,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            console.log('mismatch',Listval,AudioToVideoContainer.ImageList)
+                            SetTriggerDoNotDisturb('Convert')
+                            
+                        }else{
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 1,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            console.log('mismatch',Listval,AudioToVideoContainer.ImageList)
+                            ShowToast('warning',"Seams there is no cosistensy between transcripts and videos")
+                            return
+                        }
+                        
+                    }
+                    for (let i = 0; i < Listval.length; i++) {
+                        Listval[i]['ImageList'] = AudioToVideoContainer.ImageList[i]
+                        Listval[i]['audio'] = AudioToVideoContainer.AudioNameList[i]
+                        Listval[i]['videoType'] = AudioToVideoContainer.VideoTypeList[i] ? AudioToVideoContainer.VideoTypeList[i] : 'shorts'
+                    }
+                    var videoList = JSON.stringify(Listval , null, 2);
+                    if(DoNotDisturbContainer.isChecked){
+                            // console.log('running dnd after TTS',videoList)//
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Data generated. Creating images in 3 seconds'
+                            })
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetails' : videoList,
+                                    'LoadingVideoList' : true,
+                                    'FirstStepLevel' : 2,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            SetTriggerDoNotDisturb('NextVoiceToVideo')
+                            
+                            
+                    }else{
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Data generated. '
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetails' : videoList,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 2,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            
+                        }, 2000);
+                    }
+                    
+                    
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'LoadingVideoList' : false,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' : 1,
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+    
+            }else if(data.type == 'RequestCreateImages'){
+                var val = data.message
+                var IsRecreating = Boolean(val['IsRecreating'])
+                PlayNotifiactions('play')
+                if (val['type'] == 'success') {
+                    if(IsRecreating){
+                        var dataval = [...ImageRecreationContainer.RecreatedVideoListDetailsWithImages,...val['data']]
+                        // console.log(typeof(videoList),videoList)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Images created successfuly'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetailsWithImages' : dataval,
+                                    'LoadingVideoList' : false,
+                                    'SecondStepLevel' : 2,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                            SetImageRecreationContainer((e) => {
+                                return {
+                                    ...e,
+                                    'FailedVideoListDetailsWithImages' : [],
+                                    'RecreatedVideoListDetailsWithImages' : [],
+                                    'ShowRecreatedImages' : false
+                                }
+                            })
+                            if(DoNotDisturbContainer.isChecked){
+                                // console.log('running dnd')
+                                ShowToast('info','Upload audio for DnD to take over')
+                            }
+                        }, 2000);
+                    }else {
+                        // console.log(typeof(videoList),videoList)
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Images created successfuly'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetailsWithImages' : val['data'],
+                                    'LoadingVideoList' : false,
+                                    'SecondStepLevel' : 2,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                            SetImageRecreationContainer((e) => {
+                                return {
+                                    ...e,
+                                    'FailedVideoListDetailsWithImages' : [],
+                                    'RecreatedVideoListDetailsWithImages' : [],
+                                    'ShowRecreatedImages' : false
+                                }
+                            })
+                        }, 2000);
+                    }
+                    if(DoNotDisturbContainer.isChecked){
+                        // console.log('running dnd')
+                        ShowToast('info','Upload audio for DnD to take over')
+                    }
+                    SetImagePreviewContainer((e) => {
+                        return {
+                            ...e,
+                            'Show' : false,
+                            'url' : null,
+                            'ImageType' : 'shorts'
+                        }
+                    })
+                }else {
+                  
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'LoadingVideoList' : false,
+                            'SecondStepLevel' : 1,
+                            'progressLevel' : 2,
+                        }
+                    })
+                    var dataval = [...ImageRecreationContainer.RecreatedVideoListDetailsWithImages,...val['SuccessfulData']]
+                    SetImageRecreationContainer((e) => {
+                        return {
+                            ...e,
+                            'FailedVideoListDetailsWithImages' : val['FailedData'],
+                            'RecreatedVideoListDetailsWithImages' : dataval,
+                            'ShowRecreatedImages' : true
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                    if(DoNotDisturbContainer.isChecked){
+                        // console.log('running dnd')
+                        ToongleSecondProgressLevel('Recreate')
+                    }
+                }
+            }else if(data.type == 'RequestCreateImagesTranscript'){
+                var val = data.message
+                var IsRecreating = Boolean(val['IsRecreating'])
+                PlayNotifiactions('play')
+                if (val['type'] == 'success') {
+                    if(IsRecreating){
+                        var dataval = [...ImageRecreationContainer.RecreatedVideoListDetailsWithImages,...val['data']]
+                        if(DoNotDisturbContainer.isChecked){
+                            // console.log('running dnd, after image creation',dataval)
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Images created successfuly. Merging in 3 seconds'
+                            })
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetailsWithImages' : dataval,
+                                    'LoadingVideoList' : true,
+                                    'SecondStepLevel' : 2,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                            SetImageRecreationContainer((e) => {
+                                return {
+                                    ...e,
+                                    'FailedVideoListDetailsWithImages' :[],
+                                    'RecreatedVideoListDetailsWithImages' : [],
+                                    'ShowRecreatedImages' : false
+                                }
+                            })
+                            SetTriggerDoNotDisturb('MergeTranscript')
+                            
+                        }else{
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Images created successfuly'
+                            })
+                            setTimeout(() => {
+                                SetPostContentContainer((e) => {
+                                    return {
+                                        ...e,
+                                        'VideoListDetailsWithImages' : dataval,
+                                        'LoadingVideoList' : false,
+                                        'SecondStepLevel' : 2,
+                                        'progressLevel' : 2,
+                                    }
+                                })
+                                SetImageRecreationContainer((e) => {
+                                    return {
+                                        ...e,
+                                        'FailedVideoListDetailsWithImages' :[],
+                                        'RecreatedVideoListDetailsWithImages' : [],
+                                        'ShowRecreatedImages' : false
+                                    }
+                                })
+                                
+                            }, 2000);
+                        }    
+                        // console.log(typeof(videoList),videoList)
+                       
+                    }else {
+                        if(DoNotDisturbContainer.isChecked){
+                            console.log('running dnd, after image creation',val['data'])
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Images created successfuly. Merging in 3 seconds'
+                            })
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'VideoListDetailsWithImages' : val['data'],
+                                    'LoadingVideoList' : true,
+                                    'SecondStepLevel' : 2,
+                                    'progressLevel' : 2,
+                                }
+                            })
+                            SetImageRecreationContainer((e) => {
+                                return {
+                                    ...e,
+                                    'FailedVideoListDetailsWithImages' :[],
+                                    'RecreatedVideoListDetailsWithImages' : [],
+                                    'ShowRecreatedImages' : false
+                                }
+                            })
+                            SetTriggerDoNotDisturb('MergeTranscript')
+                            
+                        }else{
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : 'Images created successfuly'
+                            })
+                            setTimeout(() => {
+                                SetPostContentContainer((e) => {
+                                    return {
+                                        ...e,
+                                        'VideoListDetailsWithImages' : val['data'],
+                                        'LoadingVideoList' : false,
+                                        'SecondStepLevel' : 2,
+                                        'progressLevel' : 2,
+                                    }
+                                })
+                                SetImageRecreationContainer((e) => {
+                                    return {
+                                        ...e,
+                                        'FailedVideoListDetailsWithImages' :[],
+                                        'RecreatedVideoListDetailsWithImages' : [],
+                                        'ShowRecreatedImages' : false
+                                    }
+                                })
+                                
+                            }, 2000);
+                        }  
+                        // console.log(typeof(videoList),videoList)
+                        
+                    }
+                    SetImagePreviewContainer((e) => {
+                        return {
+                            ...e,
+                            'Show' : false,
+                            'url' : null,
+                            'ImageType' : 'shorts'
+                        }
+                    })
+                }else {
+                    if(DoNotDisturbContainer.isChecked){
+                        console.log('running dnd after error in image creation')
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : `${val['result']}. Recreating in 3 seconds`
+                        })
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : true,
+                                'SecondStepLevel' : 1,
+                                'progressLevel' : 2,
+                            }
+                        })
+                        var dataval = [...ImageRecreationContainer.RecreatedVideoListDetailsWithImages,...val['SuccessfulData']]
+                        SetImageRecreationContainer((e) => {
+                            return {
+                                ...e,
+                                'FailedVideoListDetailsWithImages' : val['FailedData'],
+                                'RecreatedVideoListDetailsWithImages' : dataval,
+                                'ShowRecreatedImages' : true
+                            }
+                        })
+                        // ShowToast(val['type'],val['result'])
+                        SetTriggerDoNotDisturb('RecreateTranscript')
+                        
+                    }else {
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'SecondStepLevel' : 1,
+                                'progressLevel' : 2,
+                            }
+                        })
+                        var dataval = [...ImageRecreationContainer.RecreatedVideoListDetailsWithImages,...val['SuccessfulData']]
+                        SetImageRecreationContainer((e) => {
+                            return {
+                                ...e,
+                                'FailedVideoListDetailsWithImages' : val['FailedData'],
+                                'RecreatedVideoListDetailsWithImages' : dataval,
+                                'ShowRecreatedImages' : true
+                            }
+                        })
+                        ShowToast(val['type'],val['result'])
+                    }
+                    
+                }
+            }else if(data.type == 'RequestUploadVideos'){
+                var val = data.message
+                PlayNotifiactions('play')
+                if (val['type'] == 'success') {
+                    //console.log(val)
+                    // console.log(typeof(videoList),videoList)
+                    
+                    if(DoNotDisturbContainer.isChecked){
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Videos uploaded successfuly.✅.Reseting and clearing your videos in 3 seconds'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'ThirdStepLevel' : 2,
+                                    'progressLevel' : 3,
+                                    'LoadingVideoList' : true,
+                                    'UploadedVideoId' : val.video_id
+                                }
+                            })
+                        }, 2000);
+                    
+                        dispatch({
+                            type : AiVideoMergeUrlReducer,
+                            payload : []
+                        })
+                        //ShowToast(val['type'],val['result'])
+                        // console.log('running dnd')
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'ClearServer' : true
+                            }
+                        })
+                        SetTriggerDoNotDisturb('Reset')
+                        
+                    }else{
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Videos uploaded successfuly.✅.'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'ThirdStepLevel' : 2,
+                                    'progressLevel' : 3,
+                                    'LoadingVideoList' : false,
+                                    'UploadedVideoId' : val.video_id
+                                }
+                            })
+                        }, 2000);
+                    
+                        dispatch({
+                            type : AiVideoMergeUrlReducer,
+                            payload : []
+                        })
+                        ShowToast(val['type'],val['result'])
+                    }
+                    if(db != null){
+                        var data = {
+                            'scope' : 'ReadProfile',
+                            'AccountEmail' : UserEmail,
+                            'AccountID' : extrainfo,
+                            'IsOwner' : true,
+                        }
+                        FetchUserProfile(JSON.stringify([data]))
+                    }  
+                }else {
+                    SetPostContentContainer((e) => {
+                        return {
+                            ...e,
+                            'ThirdStepLevel' : 1,
+                            'progressLevel' : 3,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+            }else if(data.type == 'RequestClearServer'){
+                var val = data.message
+                PlayNotifiactions('play')
+                ShowToast(val['type'],val['result'])
+            }else if(data.type == 'RequestTextToSpeech'){
+                var val = data.message
+                PlayNotifiactions('play')
+                if (val['type'] == 'success') {
+                    
+                    if(DoNotDisturbContainer.isChecked){
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Successfuly generated audio. Generating video data in 3 seconds'
+                        })
+                        // console.log('running dnd')
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : true,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        SetAudioToVideoContainer((e) => {
+                            return {
+                                ...e,
+                                'TextToSpeechScope' : 'Previewing',
+                                'AudioNameList' : val['AudioNameList'],
+                                'ImageList' : val['ImageList'],
+                                'VideoTypeList' : val['VideoTypeList'],
+                                'TextToSpeechAudioList' : val['AudioList'],
+                                'Scope' : 'TextToSpeech'
+                            }
+                        })
+                        SetTriggerDoNotDisturb('VerifyPreview')
+                                                
+                    }else{
+                        dispatch({
+                            type :ProgressInformationReducer,
+                            payload : 'Successfuly generated audio'
+                        })
+                        setTimeout(() => {
+                            SetPostContentContainer((e) => {
+                                return {
+                                    ...e,
+                                    'LoadingVideoList' : false,
+                                    'FirstStepLevel' : 1,
+                                    'progressLevel' : 1,
+                                }
+                            })
+                            SetAudioToVideoContainer((e) => {
+                                return {
+                                    ...e,
+                                    'TextToSpeechScope' : 'Previewing',
+                                    'AudioNameList' : val['AudioNameList'],
+                                    'ImageList' : val['ImageList'],
+                                    'VideoTypeList' : val['VideoTypeList'],
+                                    'TextToSpeechAudioList' : val['AudioList'],
+                                    'Scope' : 'TextToSpeech'
+                                }
+                            })
+                            dispatch({
+                                type :ProgressInformationReducer,
+                                payload : ''
+                            })
+                            
+                        }, 2000);
+                    }
+                    
+                    
+                }else if (val['type'] == 'error') {
+                    SetPostContentContainer((e)=> {
+                        return {
+                            ...e,
+                            'FirstStepLevel' : 1,
+                            'progressLevel' :  1,
+                            'LoadingVideoList' : false
+                        }
+                    })
+                    SetAudioToVideoContainer((e) => {
+                        return {
+                            ...e,
+                            'TextToSpeechScope' : 'Scripting',
+                            'Scripts' : [],
+                            'TextToSpeechAudioList' : [],
+                            'Scope' : 'TextToSpeech'
+                        }
+                    })
+                    ShowToast(val['type'],val['result'])
+                }
+            }else if (data.type ==  'ProgressInformation'){
+                var val = data.message
+                if(val['Scope'] == 'Information'){
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : val['details']
+                    })
+                }else if(val['Scope'] == 'ImageCreation'){
+                    SetImagePreviewContainer((e) => {
+                        return {
+                            ...e,
+                            'Show' : true,
+                            'ImageType' : val['videoType'],
+                            'url' : val['url']
+                        }
+                    })
+                    dispatch({
+                        type :ProgressInformationReducer,
+                        payload : val['details']
+                    })
+                }
+                
+            }
+        };
+        WsDataStream.current.onopen = (e) => {
+            // websocket is opened
+            SetPostContentContainer((e) => {
+                return {
+                    ...e,
+                    'LoadingVideoList' : false
+                }
+            })
+            SetTriggerDoNotDisturb('')
+            
+        }
+        WsDataStream.current.onclose = function (e) {
+          
+        }
+        if(WsDataStream.current.readyState === WsDataStream.current.OPEN){
+            if(msg == 'RequestAIResponse') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestAIResponse',
+                        'email' : UserEmail,
+                        'prompt' : body,
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                    })
+                )
+            }else if(msg == 'RequestAITranscriptResponse') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestAITranscriptResponse',
+                        'email' : UserEmail,
+                        'prompt' : body,
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                    })
+                )
+            }else if(msg == 'RequestAITTSResponse') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestAITTSResponse',
+                        'email' : UserEmail,
+                        'prompt' : body,
+                        'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                    })
+                )
+            }else if(msg == 'RequestCreateImages') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestCreateImages',
+                        'email' : UserEmail,
+                        'prompt' : body, //PostContentContainer.VideoListDetails,
+                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
+                        'VideosType' : PostContentContainer.SocialMediaVideosTypeOptions[0].value,
+                        'IsRecreating' : additionalInfo
+                    })
+                )
+            }else if(msg == 'RequestCreateImagesTranscript') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestCreateImagesTranscript',
+                        'email' : UserEmail,
+                        'prompt' : body,
+                        'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
+                        'IsRecreating' : additionalInfo
+                    })
+                )
+            }else if(msg == 'RequestUploadVideos') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestUploadVideos',
+                        'email' : UserEmail,
+                        'prompt' : PostContentContainer.VideoListDetailsWithImages,
+                        'VideoUrl' : AiVideoMergeUrl,
+                        'SocialMediaType' : body,
+                        'tokenPathName' : SelectedtokenPathName
+                    })
+                )
+            }else if(msg == 'RequestClearServer') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestClearServer',
+                        'email' : UserEmail,
+                        'Shutdown' : DoNotDisturbContainer.Shutdown
+                    })
+                )
+            }else if(msg == 'RequestTextToSpeech') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestTextToSpeech',
+                        'email' : UserEmail,
+                        'Data' : AudioToVideoContainer.Scripts,
+                        'NumberOfImages':PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'SocialMediaType':PostContentContainer.SelectedSocialMediaType
+                    })
+                )
+            }
+        }
+        
+    } 
+    
+    function ResetPostContentContainer (props){
+        if(props != null){
+            SetPostContentContainer((e) => {
+                return {
+                    ...e,
+                    'FirstStepLevel' : 1,
+                    'SecondStepLevel' : 1,
+                    'ThirdStepLevel' : 1,
+                    'progressLevel' : 1,
+                    'LoadingVideoList' : false,
+                    'CustomAiAdioScript' : '',
+                    'AudioUploadScope' : '',
+                    'SelectedSocialMediaType' : 'youtube',
+                    'MaximumSocialMediaSelected' : 1,
+                    'ModeValue' : 'AI',
+                    'SocialMediaNumberVideosOptions' : [],
+                    'SocialMediaNumberVideos' : null,
+                    'SocialMediaVideosTypeOptions' : [],
+                    'SocialMediaNumberImagesOptions' : [],
+                    'VideoAudioModeOptions' : [],
+                    'VideoAudioModeSelectedOptions' : [],
+                    'VideoListDetails' : ``,
+                    'SelectedAudioClassificationOptions' : [],
+                    'VideoListDetailsWithImages' :[],
+                    'UploadedVideoId' : [],
+                    'ClearServer' : true,
+                    
+                }
+            })
+            reset()
+            SetDoNotDisturbContainer((e) => {
+                return {
+                    ...e,
+                    'isChecked' : false
+                }
+            })
+            SetSelectedtokenPathName('token.json')
+            if(AiPageSelected == 'VoiceToVideo'){
+                SetAudioToVideoContainer((e) => {
+                    return  {
+                        ...e,
+                        'audioFiles' : [],
+                        'AudioNameList' : [],
+                        'TextToSpeechAudioList': [],
+                        'ShowAudioToVideoContainer' : false,
+                        'Scope' : '', // TextToSpeech //AudioUpload,
+                        'TextToSpeechScope' : 'Scripting', //Previewing //Scripting
+                        'ScriptingType' : 'UI', //UI //CodeEditor
+                        'Scripts' : [],
+                        'ScriptsEditor' : '',
+                        'Validated' : false,
+                        'ImageList' : [],
+                        'VideoTypeList' : [], 
+                                   
+                    }
+                })
+                    
+            }
+
+        }
+    }
+    function ToongleAiPageSelected (props) {
+        if(props != null){
+            if(AiPageSelected != props){
+                SetAiPageSelected(props)
+                ResetPostContentContainer('reset')
+            }
+            
+        }
+    } 
+    
     function ToongleThirdProgressLevel(props) {
         if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
             ShowToast('warning','Login to proceed')
@@ -1645,7 +1906,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     type :ProgressInformationReducer,
                     payload : 'Uploading videos to youtube. You will be notified shotly. Please hold'
                 })
-                requestWsStream('RequestUploadVideos',mediaType,0)
+                requestWsStream('RequestUploadVideos',mediaType)
             }
             
         }else if (props == 'Reset'){
@@ -1660,7 +1921,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 type : AiVideoMergeUrlReducer,
                 payload : []
             })
-            ResetPostContentContainer('reset')
+            if(DoNotDisturbContainer.isChecked){
+                setTimeout(() => {
+                    ResetPostContentContainer('reset')
+                }, 2000);
+            }else {
+                ResetPostContentContainer('reset')
+            }
+            
             if(PostContentContainer.ClearServer){
                 
                 requestWsStream('RequestClearServer')
@@ -1683,7 +1951,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'VideoAudioModeSelectedOptions' : value
                     }
                 })
-           }else {
+           }else if (val.name == 'SocialMediaNumberVideosOptions'){
+                var value = selected[0] ? selected[0].value : ''
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        [val.name] : (selected),
+                        'SocialMediaNumberVideos' : value
+                    }
+                })
+            }else {
                 var value = selected[0] ? selected[0].value : ''
                 SetPostContentContainer((e) => {
                     return {
@@ -1702,6 +1979,21 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             return {
                 ...e,
                 'VideoListDetails' : value
+            }
+        })
+    };
+    const HandleCodeEditorScriptingChange = (value) => {
+        
+        SetAudioToVideoContainer((e) => {
+            return {
+                ...e,
+                'ScriptsEditor' : value
+            }
+        })
+        SetAudioToVideoContainer((e) => {
+            return {
+                ...e,
+                'Validated' : false
             }
         })
     };
@@ -1994,7 +2286,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             return
         }
         if(props == 'upload'){
-            if(PostContentContainer.SocialMediaNumberImagesOptions == ''){
+            if(PostContentContainer.SocialMediaNumberImagesOptions.length == 0){
                 ShowToast('warning','Seams like you haven\'t selected audio mode')
                 return
             }
@@ -2025,7 +2317,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 ShowToast('warning','Seams like you haven\'t provided any script. Provide to proceed!')
                 return
             }
-            if(PostContentContainer.SocialMediaNumberImagesOptions == ''){
+            if(PostContentContainer.SocialMediaNumberImagesOptions.length == 0){
                 ShowToast('warning','Seams like you haven\'t selected audio mode')
                 return
             }
@@ -2062,7 +2354,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             var transcripts = AudioToVideoContainer.Scripts
             var promptConstructed = {
                 'socialMedia' : PostContentContainer.SelectedSocialMediaType,
-                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object . each ${lengthval} object should get its description idea on the following array at the same index position '${transcripts}  ' `,
+                'prompt' : ` Generate an array of strictly ${lengthval} object, not more than ${lengthval} object or less than ${lengthval} object but only ${lengthval} object .let it be an array even if it has ${lengthval} object. each ${lengthval} object should get its description idea on the following array at the same index position '${transcripts}  ' `,
                
             }
             dispatch({
@@ -2154,6 +2446,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'Scripts' : dataval
                 }
             })
+            
             SethandleTextToSpeechInput('')
         }else if(props == 'remove') {
             var dataval = AudioToVideoContainer.Scripts
@@ -2164,6 +2457,23 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'Scripts' : dataval
                 }
             })            
+        }else if(props == 'Verify'){
+            try {
+                JSON.parse(AudioToVideoContainer.ScriptsEditor)
+                
+              } catch (error) {
+                console.log(error)
+                ShowToast('warning','Data is not in a valid json format')
+                return ;
+              }
+            
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'Scripts' : JSON.parse(AudioToVideoContainer.ScriptsEditor),
+                    'Validated' : true
+                }
+            })
         }
     }
     
@@ -2205,7 +2515,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             </div>
           </div>
         );
-      });
+    });
    
     const MapVideoScripts = PostContentContainer.VideoListDetailsWithImages.map((items,i) => { 
         var script = items.audio.script
@@ -2349,7 +2659,22 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             </div>
         );
     });
-    
+    const MapProfileYoutubeChannelsDND = ProfileYoutubeChannels.map((items, i) => {
+        // console.log(items)
+        return (
+            <div key={i} className={` ${items.tokenPath != 'token.json' ? 'flex flex-row' : 'hidden'} group hover:bg-slate-400 dark:hover:bg-slate-700 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start gap-4 px-2 `}>                <input 
+                    onChange={ToongleProfileYoutubeChannelsChange}
+                    type="radio"
+                    name="profileYoutubeChannels"  // common name for the group
+                    //disabled={false} //{PostContentContainer.LoadingVideoList == true}
+                    value={items.tokenPath}
+                    // checked={items.tokenPath == SelectedtokenPathName} 
+                    className="radio radio-info dark:radio-success shadow-xs shadow-slate-500/80 dark:shadow-slate-100/60"
+                />
+                <p className="text-sm py-1 text-black dark:text-slate-100">{items.name}</p>
+            </div>
+        );
+    });
     const ToongleClearServerChange = (event) => {
         const {checked} = event.target
        
@@ -2375,6 +2700,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 return  {
                     ...e,
                     'Scope' :props
+                }
+            })
+        }
+    }
+    function ToongleAudioToVideoScriptingType(props){
+        if(props != null) {
+            SetAudioToVideoContainer((e) => {
+                return  {
+                    ...e,
+                    'ScriptingType' :props
                 }
             })
         }
@@ -2410,7 +2745,36 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         }
         
     };
-    
+    const ToongleDoNotDisturb = (event)=>{
+        const {name,checked} = event.target
+       
+        if(UserEmail == 'gestuser@gmail.com' || UserEmail == null){
+            ShowToast('warning','Login to proceed')
+            return
+        }
+        if(ProfileYoutubeChannels.length == 0 || ProfileYoutubeChannels == null){
+            ShowToast('warning','DnD only works if you have a linked youtube channel. Navigate to profile to link a channel.')
+            return
+        }
+        // console.log(value,checked)
+        SetDoNotDisturbContainer((e) =>{
+             return {
+                ...e,
+                [name] : checked
+             }
+        })
+        if(!checked){
+            SetSelectedtokenPathName('token.json')
+            // dispatch({
+            //     type : ProfileYoutubeChannelsReducer,
+            //     payload : []
+            // })
+            // dispatch({
+            //     type : ProfileYoutubeChannelsReducer,
+            //     payload : ProfileYoutubeChannels
+            // })
+        }
+    }
     //videos of birds, others are eagles, parots, flamingos and other more
     return (
         <div className={` h-full  bg-transparent min-h-[100vh] py-4 overflow-x-hidden w-full overflow-y-auto relative min-w-full max-w-[100%] flex flex-col justify-between  `} >
@@ -2462,6 +2826,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* information gathare container */}
                             <div className={` ${PostContentContainer.FirstStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit  gap-3 `} >
+                                {/* do not disturb */}
+                                <div className="flex flex-row gap-3 w-fit ml-auto p-2  " >
+                                    <input onChange={ToongleDoNotDisturb}  className="cursor-pointer " name="isChecked"  type="checkbox" checked={DoNotDisturbContainer.isChecked} />
+                                    <small className=" text-xs py-1 text-black dark:text-slate-100 " >Do not Disturb</small>
+                                </div>
+                                {/* do not disturb shutdown */}
+                                <div className="flex flex-row gap-3 w-fit ml-auto p-2  " >
+                                    <input onChange={ToongleDoNotDisturb}  className="cursor-pointer " name='Shutdown' type="checkbox" checked={DoNotDisturbContainer.Shutdown} />
+                                    <small className=" text-xs py-1 text-black dark:text-slate-100 " >Shutdown</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Number of images per video</p>
                                 <Select
                                     isMulti
@@ -2498,6 +2872,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     styles={customStyles(Theme)}
                                     className="max-h-[200px] "
                                 />
+                                {/* youtube account carousels displayer for DND */}
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Select youtube channel</p>
+                                <div className={` ${ProfileYoutubeChannels.length != 0 && DoNotDisturbContainer.isChecked ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
+                                    {MapProfileYoutubeChannelsDND}
+                                </div>
+                                {/* description input */}
                                 <div className={` ${PostContentContainer.ModeValue == 'AI' ? 'flex flex-col gap-3' : 'hidden'} `} >
                                     <p className=" text-sm py-1 text-black dark:text-slate-100 " >Write a short description of your videos to be generated</p>
                                     {/* chat component */}
@@ -2519,7 +2899,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div>
                                             :
-                                            <button disabled={watch('AIprompt') == ''  || PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || PostContentContainer.SocialMediaNumberVideosOptions.length == 0 || PostContentContainer.SocialMediaVideosTypeOptions.length == 0} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
+                                            <button disabled={watch('AIprompt') == ''  || PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || PostContentContainer.SocialMediaNumberVideosOptions.length == 0 || PostContentContainer.SocialMediaVideosTypeOptions.length == 0 || (DoNotDisturbContainer.isChecked && SelectedtokenPathName == 'token.json')} onClick={() => ToongleFirstStepLevel('next')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Next</button>
                                     }
 
                                 </div>
@@ -2527,6 +2907,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </div>
                             {/* details verification and modifications generation */}
                             <div className={` w-full ${PostContentContainer.FirstStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[350px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Verify credibility. Edit if desired</p>
                                 <CodeMirror
                                     value={PostContentContainer.VideoListDetails}
@@ -2574,7 +2957,24 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* imaging */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 1 ? 'flex flex-col' : 'hidden'} justify-around h-[200px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Create images</p>
+                                 {/* image preview */}
+                                 <div className={` ${ImagePreviewContainer.Show ? 'flex flex-row' : 'hidden'} ${ ImagePreviewContainer.ImageType == 'shorts' ? 'h-[600px] max-h-[600px] max-w-[320px]' : 'h-[280px] max-h-[280px] max-w-[350px] '} w-fit mx-auto transition-all duration-300 py-2  `} >
+                                    <img
+                                        loading="lazy"
+                                        onClick={() => ChangeMediaGallary(`${import.meta.env.VITE_APP_API_URL}/media/${ImagePreviewContainer.url}`, 'image')}
+                                        className={`object-cover rounded-sm shadow-xs shadow-slate-600/90 dark:shadow-gray-400/90 cursor-pointer w-full ${
+                                            ImagePreviewContainer.ImageType == 'shorts'
+                                            ? 'aspect-[9/16]'  // vertical portrait for shorts
+                                            : 'aspect-video'   // landscape 16:9 for videos
+                                        }`}
+                                        src={`${import.meta.env.VITE_APP_API_URL}/media/${ImagePreviewContainer.url}`}
+                                        alt="media not found"
+                                    />
+                                </div>
                                 {/* progressLevel buttons */}
                                 <div className={` flex flex-row flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'border-t-[1px] ' : 'border-t-0'} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
@@ -2585,13 +2985,22 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div> :
-                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('Create')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
+                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('Create')} className={` ${ImageRecreationContainer.ShowRecreatedImages == true ? 'hidden' :''} py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
                                     }
+                                    
+                                </div>
+                                {/* progressLevel buttons for Recreation and abandone */}
+                                <div className= {` ${PostContentContainer.LoadingVideoList == false && ImageRecreationContainer.ShowRecreatedImages == true ? 'flex flex-row flex-wrap' : 'hidden' } gap-2 w-[90%] max-w-[600px] mx-auto justify-around `}>
+                                    <button disabled={false} onClick={() => ToongleSecondProgressLevel('AbandoneCreate')} data-tip='This allows you to create videos with those whose images are successfuly created' className={`${PostContentContainer.SocialMediaNumberVideos == null && PostContentContainer.SocialMediaNumberVideos == 1 ? 'hidden' : ''} tooltip tooltip-top  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Abandone {ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s) & Proceed with {ImageRecreationContainer.RecreatedVideoListDetailsWithImages.length}</button>
+                                    <button disabled={false} onClick={() => ToongleSecondProgressLevel('Recreate')} data-tip='This allows you to recreate images that have failed to be created.' className={`tooltip tooltip-top py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Recreate {ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s) remaining</button>
                                 </div>
                             </div>
                             
                             {/* voicing */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 {/*image carousels */}
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 pt-2 " >Image previews</p>
                                 <div className="flex flex-row justify-center sm:justify-start  gap-1 w-full h-fit overflow-hidden sm:mx-0 mx-auto">
@@ -2650,6 +3059,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                             >Transcribe script
                                     </button>
                                 </div>
+                                {/* audio upload */}
                                 <div className={` ${PostContentContainer.AudioUploadScope == 'AudioUpload' ? 'flex flex-col' : 'hidden'} h-fit justify-start min-h-fit w-full  gap-3 `}>
                                     <Select
                                         isMulti
@@ -2698,6 +3108,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                         
                                     </div>
                                 </div>
+                                {/* audio transcribe */}
                                 <div className={` ${PostContentContainer.AudioUploadScope == 'TextToSpeech' ? 'flex flex-col' : 'hidden'} h-[100px] pl-4 justify-start min-h-fit w-full  gap-3 `}>
                                     <p className=" text-sm py-1 text-black dark:text-slate-100 " >Audios will be generated from the automated scripts above and merged with images. Feel free to proceed</p>
                                 </div>
@@ -2737,6 +3148,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Review your video</p>
                                 <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
                                     <div className="flex flex-row justify-around sm:justify-start sm:gap-10  gap-1  w-full h-fit overflow-hidden sm:mx-0 mx-auto" >
@@ -2777,6 +3191,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </div>
                             {/* logs from submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 my-auto text-black dark:text-slate-100 " >Video successfuly uploaded</p>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Your uploaded video id</p>
                                 
@@ -2830,6 +3247,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* information gathare container */}
                             <div className={` ${PostContentContainer.FirstStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit w-full  gap-3 `} >
+                                {/* do not disturb */}
+                                <div className="flex flex-row gap-3 w-fit ml-auto p-2  " >
+                                    <input onChange={ToongleDoNotDisturb}  className="cursor-pointer " name="isChecked" type="checkbox" checked={DoNotDisturbContainer.isChecked} />
+                                    <small className=" text-xs py-1 text-black dark:text-slate-100 " >Do not Disturb</small>
+                                </div>
+                                {/* do not disturb shutdown */}
+                                <div className="flex flex-row gap-3 w-fit ml-auto p-2  " >
+                                    <input onChange={ToongleDoNotDisturb}  className="cursor-pointer " name='Shutdown' type="checkbox" checked={DoNotDisturbContainer.Shutdown} />
+                                    <small className=" text-xs py-1 text-black dark:text-slate-100 " >Shutdown</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Number of images per video</p>
                                 <Select
                                     isMulti
@@ -2842,6 +3269,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     styles={customStyles(Theme)}
                                     className="max-h-[200px] "
                                 />
+                                {/* youtube account carousels displayer for DND */}
+                                <p className=" text-sm py-1 text-black dark:text-slate-100 " >Select youtube channel</p>
+                                <div className={` ${ProfileYoutubeChannels.length != 0 && DoNotDisturbContainer.isChecked ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-500/40 gap-2 py-3 pl-2  transition-all duration-300  w-[90%] rounded-sm max-w-[600px] overflow-y-auto h-fit max-h-[200px] overflow-x-hidden ml-2 justify-around`} >
+                                    {MapProfileYoutubeChannelsDND}
+                                </div>
                                 <div className="flex border-y-[1px] dark:border-slate-600 border-slate-500 rounded-sm py-4 text-xs flex-row w-full align-middle justify-start gap-3 pl-4 " >
                                     <button onClick={() => ToongleAudioToVideoContainerScope('TextToSpeech')} data-tip='Upload multiple scripts to be converted to audio that they may be used in creating video'
                                             className={`shadow-xs ${AudioToVideoContainer.Scope == 'TextToSpeech' ? ' shadow-purple-900 dark:shadow-amber-200' : ' '} hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top  transition-all duration-300 px-3 py-2 rounded-sm cursor-pointer  `} 
@@ -2855,6 +3287,18 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 </div>
                                 {/* text to speech scope */}
                                 <div className={` ${AudioToVideoContainer.Scope == 'TextToSpeech' ? 'flex flex-col' : 'hidden'} h-[300px] justify-start min-h-fit w-full  gap-3 `}>
+                                    {/* scripting type */}
+                                    <div className="flex  rounded-sm py-4 text-xs flex-row w-full align-middle justify-start gap-3 pl-4 " >
+                                        <button onClick={() => ToongleAudioToVideoScriptingType('UI')} data-tip='Upload multiple scripts to be converted to audio that they may be used in creating video'
+                                                className={`shadow-xs ${AudioToVideoContainer.ScriptingType == 'UI' ? ' shadow-purple-900 dark:shadow-amber-200' : ' '} hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top  transition-all duration-300 px-3 py-2 rounded-sm cursor-pointer  `} 
+                                                >Friendly UI
+                                        </button>
+                                        <small className=" my-auto dark:text-gray-400" >or</small>
+                                        <button onClick={() => ToongleAudioToVideoScriptingType('CodeEditor')} data-tip='Upload multiple audio to be converted that they may be used in creating video'
+                                                className={`shadow-xs ${AudioToVideoContainer.ScriptingType == 'CodeEditor' ? 'shadow-purple-900 dark:shadow-amber-200 shadow-xs' : ''}hover:shadow-slate-800 dark:hover:shadow-slate-300 tooltip tooltip-top hover:shadow-xstransition-all duration-300 px-3 py-2 rounded-sm cursor-pointer `} 
+                                                >Code Editor
+                                        </button>
+                                    </div>
                                     {/* previewing text to speech */}
                                     <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Previewing' ? 'flex flex-col' : 'hidden'} h-[300px] justify-start min-h-fit w-full  gap-3 `}>
                                         <p className=" text-sm py-1 text-black dark:text-slate-100 " >Preview your audio(s)</p>
@@ -2889,8 +3333,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
 
                                         </div>
                                     </div>
-                                    {/* scripting text to speech */}
-                                    <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Scripting' ? 'flex flex-col gap-3' : 'hidden'} h-[300px] justify-start min-h-fit w-full `}>
+                                    {/* scripting text to speech UI */}
+                                    <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Scripting' && AudioToVideoContainer.ScriptingType == 'UI' ? 'flex flex-col gap-3' : 'hidden'} h-[300px] justify-start min-h-fit w-full `}>
                                         <p className=" text-sm py-1 text-black dark:text-slate-100 " >Upload script(s)</p>
                                         {/* script carousels */}
                                         <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
@@ -2932,12 +3376,44 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                         </Typist>
                                                         <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                                     </div>                                        :
-                                                    <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.Scripts.length != 0} onClick={() => ToongleFirstStepLeveAudioToVideo('Convert')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Convert</button>
+                                                    <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.Scripts.length != 0 || (DoNotDisturbContainer.isChecked && SelectedtokenPathName == 'token.json')} onClick={() => ToongleFirstStepLeveAudioToVideo('Convert')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Convert</button>
                                             }
 
                                         </div>
                                     </div>
-                                    
+                                    {/* scripting text to speech Code Editor */}
+                                    <div className={` ${AudioToVideoContainer.TextToSpeechScope == 'Scripting' && AudioToVideoContainer.ScriptingType == 'CodeEditor' ? 'flex flex-col gap-3' : 'hidden'} h-[300px] justify-start min-h-fit w-full `}>
+                                    <p className=" text-sm py-1 text-black dark:text-slate-100 " >Upload script(s) in JSON format</p>
+                                        <CodeMirror
+                                            value={AudioToVideoContainer.ScriptsEditor}
+                                            extensions={[
+                                                lineNumbers(), // Enable line numbers
+                                                lintGutter(), // Show gutter for linter
+                                                json(), // JSON syntax highlighting
+                                            ]}
+                                            onChange={HandleCodeEditorScriptingChange}
+                                            height="350px"
+                                            theme={Theme == 'dark' ? oneDark : 'light'} // Optional: Set a dark theme
+                                            className=" text-black dark:text-slate-300 overflow-y-auto w-full max-w-[270px] min-w-full xs:max-w-[300px] "
+                                        />
+                                        <button onClick={() => ToongleAddScripts('Verify')} className={` py-2 cursor-pointer w-fit mx-auto  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent  mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Verify</button>
+
+                                        {/* progressLevel buttons */}
+                                        <div className={` flex  flex-wrap mt-auto gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
+                                            {
+                                            PostContentContainer.LoadingVideoList == true ? 
+                                                <div className="flex flex-col w-full gap-3" >
+                                                    <Typist avgTypingDelay={20} stdTypingDelay={5}  className=" mx-auto text-yellow-300 dark:text-amber-400" key={ProgressInformation}>
+                                                        <span className=" text-sm py-1 text-center transition-all duration-300 text-blue-700 dark:text-sky-400 " >{ProgressInformation}</span>
+                                                    </Typist>
+                                                    <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
+                                                </div>                                        :
+                                                <button disabled={PostContentContainer.SocialMediaNumberImagesOptions.length == 0 || !AudioToVideoContainer.Scripts.length != 0 || AudioToVideoContainer.Validated == false || (DoNotDisturbContainer.isChecked && SelectedtokenPathName == 'token.json')} onClick={() => ToongleFirstStepLeveAudioToVideo('Convert')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Convert</button>
+                                            }
+
+                                        </div>
+                                    </div>
+
                                 </div>
                                 {/* audio upload container scope */}
                                 <div className={` ${AudioToVideoContainer.Scope == 'AudioUpload' ? 'flex flex-col' : 'hidden'} h-[300px] justify-around min-h-fit w-full  gap-3 `} >
@@ -2992,6 +3468,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </div>
                             {/* details verification and modifications generation */}
                             <div className={` w-full ${PostContentContainer.FirstStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[350px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Verify credibility. Edit if desired</p>
                                 <CodeMirror
                                     value={PostContentContainer.VideoListDetails}
@@ -3038,7 +3517,24 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* imaging */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 1 ? 'flex flex-col' : 'hidden'} justify-around h-[200px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Create images</p>
+                                {/* image preview */}
+                                <div className={` ${ImagePreviewContainer.Show ? 'flex flex-row' : 'hidden'} ${ ImagePreviewContainer.ImageType == 'shorts' ? 'h-[600px] max-h-[600px] max-w-[320px]' : 'h-[280px] max-h-[280px] max-w-[350px] '} w-fit mx-auto transition-all duration-300 py-2  `} >
+                                    <img
+                                        loading="lazy"
+                                        onClick={() => ChangeMediaGallary(`${import.meta.env.VITE_APP_API_URL}/media/${ImagePreviewContainer.url}`, 'image')}
+                                        className={`object-cover rounded-sm shadow-xs shadow-slate-600/90 dark:shadow-gray-400/90 cursor-pointer w-full ${
+                                            ImagePreviewContainer.ImageType == 'shorts'
+                                            ? 'aspect-[9/16]'  // vertical portrait for shorts
+                                            : 'aspect-video'   // landscape 16:9 for videos
+                                        }`}
+                                        src={`${import.meta.env.VITE_APP_API_URL}/media/${ImagePreviewContainer.url}`}
+                                        alt="media not found"
+                                    />
+                                </div>
                                 {/* progressLevel buttons */}
                                 <div className={` flex  flex-wrap gap-2 py-3 ${PostContentContainer.LoadingVideoList == true ? 'flex-col border-t-[1px]' : ' border-t-0 flex-row '} border-slate-500 dark:border-t-slate-500 transition-all duration-300  w-[100%] mt-3 max-w-[600px] mx-auto justify-around`}>
                                     {
@@ -3049,13 +3545,21 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                                 </Typist>
                                                 <span className="loading mx-auto dark:bg-slate-400 bg-slate-700 loading-spinner loading-md"></span>
                                             </div> :
-                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('CreateTranscript')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
+                                            <button disabled={false} onClick={() => ToongleSecondProgressLevel('CreateTranscript')} className={`${ImageRecreationContainer.ShowRecreatedImages == true ? 'hidden' :''} py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Create</button>
                                     }
+                                </div>
+                                {/* progressLevel buttons for Recreation and abandone */}
+                                <div className= {` ${PostContentContainer.LoadingVideoList == false && ImageRecreationContainer.ShowRecreatedImages == true ? 'flex flex-row flex-wrap' : 'hidden' } gap-2 w-[90%] max-w-[600px] mx-auto justify-around `}>
+                                    <button disabled={false} onClick={() => ToongleSecondProgressLevel('AbandoneCreate')} data-tip='This allows you to create videos with those whose images are successfuly created' className={`${PostContentContainer.SocialMediaNumberVideos == null && PostContentContainer.SocialMediaNumberVideos == 1 ? 'hidden' : ''} tooltip tooltip-top  py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Abandone {ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s) & Proceed with {ImageRecreationContainer.RecreatedVideoListDetailsWithImages.length}</button>
+                                    <button disabled={false} onClick={() => ToongleSecondProgressLevel('RecreateTranscript')} data-tip='This allows you to recreate images that have failed to be created.' className={`tooltip tooltip-top py-2 cursor-pointer  disabled:cursor-not-allowed  disabled:bg-gray-600 disabled:opacity-60 px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-transparent transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Recreate {ImageRecreationContainer.FailedVideoListDetailsWithImages.length} video(s) remaining</button>
                                 </div>
                                 
                             </div>
                             {/* merging to video */}
                             <div className={` w-full ${PostContentContainer.SecondStepLevel == 2 ? 'flex flex-col justify-start' : 'hidden'} h-[200px] min-h-fit  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 {/*image carousels */}
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Image previews</p>
                                 <div className="flex flex-col sm:flex-row gap-1 justify-center sm:pl-8  w-full">
@@ -3119,6 +3623,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </ul>
                             {/* confirm upload submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 1 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Review your video</p>
                                 
                                 <div className={`  ${AiVideoMergeUrl.length == 0  ? 'hidden' :'flex flex-col'} sm:flex-row gap-1 justify-center sm:pl-8  w-full `} >
@@ -3159,6 +3666,9 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             </div>
                             {/* logs from submission */}
                             <div className={` w-full ${PostContentContainer.ThirdStepLevel == 2 ? 'flex flex-col' : 'hidden'} h-[200px] min-h-fit mt-4  gap-3 `}  >
+                                <div className={` ${DoNotDisturbContainer.isChecked ? 'flex flex-row' : 'hidden'} gap-3 w-fit ml-auto p-2  `} >
+                                    <small className=" text-xs opacity-80 py-1 text-black dark:text-slate-100 " >DnD is on</small>
+                                </div>
                                 <p className=" text-sm py-1 my-auto text-black dark:text-slate-100 " >Video successfuly uploaded</p>
                                 <p className=" text-sm py-1 text-black dark:text-slate-100 " >Your uploaded video id</p>
                                 

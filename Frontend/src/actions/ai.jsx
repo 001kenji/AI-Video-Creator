@@ -223,7 +223,7 @@ export const PromptMergeAudioToVideo = (props) => async dispatch => {
                 try {
                     const jsonData = JSON.parse(lines[i]);
                     if (jsonData.progress) {
-                        console.log("Progress:", jsonData.progress);
+                        // console.log("Progress:", jsonData.progress);
                         dispatch({
                             type: ProgressInformationReducer,
                             payload: jsonData.progress
@@ -317,7 +317,7 @@ export const UploadAudioToVideoAudios = (props) => async dispatch => {
                     // If progress message exists, update progress
                     
                     if (jsonData.progress) {
-                        console.log("Progress:", jsonData.progress);
+                        // console.log("Progress:", jsonData.progress);
                         dispatch({
                             type :ProgressInformationReducer,
                             payload : String(jsonData.progress)

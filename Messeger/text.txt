@@ -1,4 +1,95 @@
-Julian roamed the abandoned park under a pale moon as memories of a lost love haunted every step. The silence of the night carried echoes of laughter that once filled the air and the bittersweet sorrow of parting. Every rustling leaf whispered secrets of a passion that had burned bright and faded into despair. In the stillness he recalled the tender moments shared beneath starlit skies and the promises that dissolved like morning mist. The chill in the breeze mirrored the emptiness in his heart as shadows danced in the ruins of forgotten dreams. Julian felt the ache of longing in every heartbeat and the ghost of her presence lingered in every silent corner. The night embraced his solitude as love and loss intertwined in a haunting ballet of memory and regret. In that mournful hour a tear and sigh echoed with remnants of a love that would never return.
+To emit progress messages through the WebSocket from within `RequestAIResponseFunc`, you can pass the consumer's `send_msg` method as a callback and use it to send intermediate updates. Here's how to modify your code:
 
+### Step 1: Pass `send_msg` to `RequestAIResponseFunc`
+Modify the `handle_request_ai_response` method to include `send_progress` as an argument:
 
-Rafael ventured into the ancient ruins at the break of dawn where history and myth converged in silent splendor. The crumbling stones told tales of empires long fallen and heroes whose names echoed through the corridors of time. Each step uncovered layers of forgotten lore and every shadow hinted at secrets buried beneath the earth. In a secluded chamber he discovered inscriptions that glowed with a mysterious light and revealed the destiny of a lost civilization. The air was thick with the magic of bygone eras and the promise of revelations waiting to be unearthed. Rafael felt a surge of wonder and anticipation as he pieced together the puzzle of his heritage and the legacy of a people whose spirit endured. In that ancient silence every stone whispered a forgotten secret and every ray of morning light unveiled a fragment of truth that wove together the tapestry of lost glory.
+```python
+async def handle_request_ai_response(self, prompt, email, NumberOfRequestRetry):
+    # Pass self.send_msg as a progress callback
+    val = await RequestAIResponseFunc(
+        prompt=prompt,
+        email=email,
+        NumberOfRequestRetry=NumberOfRequestRetry,
+        send_progress=self.send_msg  # Add this
+    )
+    await self.send_msg(data=val, type='RequestAIResponse')
+```
+
+### Step 2: Update `RequestAIResponseFunc`
+Modify the function signature and emit progress messages at key points:
+
+```python
+@asyncCircuitBreaker
+async def RequestAIResponseFunc(prompt, email, NumberOfRequestRetry, send_progress):  # Add send_progress
+    """Generate AI text content asynchronously."""
+    try:
+        # Example progress update
+        await send_progress(
+            data={"status": "started", "details": "Processing your request..."},
+            type='progress'
+        )
+
+        try:
+            model = settings.AI_MODEL
+            # Emit progress before starting work
+            await send_progress(
+                data={"status": "model_start", "details": "Initializing AI model..."},
+                type='progress'
+            )
+
+            response = await asyncio.to_thread(model.generate_content, prompt)
+
+        except Exception as e:
+            # Send error progress
+            await send_progress(
+                data={"status": "error", "details": "Model failed to respond"},
+                type='progress'
+            )
+            raise RetryCustomError("retry", "Issue with request. Try again later❌")
+
+        # Emit progress during processing
+        await send_progress(
+            data={"status": "processing", "details": "Formatting response..."},
+            type='progress'
+        )
+
+        cleaned_json_string = response.text.strip("```json\n").strip("```")
+        json_data = json.loads(cleaned_json_string)
+
+        # Final result (still sent via handle_request_ai_response)
+        return {'type': 'success', 'status': 'success', 'result': json_data}
+
+    except Exception as e:
+        # Send error progress
+        await send_progress(
+            data={"status": "error", "details": str(e)},
+            type='progress'
+        )
+        raise  # Re-raise for circuit breaker
+```
+
+### Key Changes:
+1. **Progress Callback**: `send_progress` is passed to `RequestAIResponseFunc` and used to send intermediate messages.
+2. **Progress Points**: Messages are sent at critical points (start, model init, processing, errors).
+3. **Message Structure**: Use a consistent structure (e.g., `status` and `details` fields) for client-side handling.
+
+### Client-Side Handling
+On the client, listen for messages with `type: 'progress'`:
+
+```javascript
+websocket.addEventListener('message', (e) => {
+    const data = JSON.parse(e.data);
+    if (data.type === 'progress') {
+        // Update UI with data.message.status/details
+    } else if (data.type === 'RequestAIResponse') {
+        // Handle final response
+    }
+});
+```
+
+### Notes:
+- **Thread Safety**: `model.generate_content` runs in a thread, so progress messages before/after it are async-safe.
+- **Error Handling**: Ensure errors are caught and progress messages are sent before re-raising.
+- **Connection State**: The circuit breaker and task cancellation in `disconnect` will handle cleanup if the client disconnects mid-process.
+
+This approach allows real-time feedback during long-running AI operations.

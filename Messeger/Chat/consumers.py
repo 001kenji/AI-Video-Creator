@@ -1,6 +1,7 @@
 # chat/consumers.py
 import json,threading,datetime,aiohttp,requests, asyncio
 import redis,aiofiles,re,textwrap,edge_tts
+from num2words import num2words
 from django.core.files.storage import FileSystemStorage
 import time,os,shutil,base64
 from django.conf import settings, Settings
@@ -39,6 +40,8 @@ import google_auth_oauthlib
 import googleapiclient.discovery
 import googleapiclient.errors
 import googleapiclient.http
+import subprocess
+import sys
 # Create an async circuit breaker
 asyncCircuitBreaker = CircuitBreaker(fail_max=5, timeout_duration=60)
 YoutubeCustomPrompt = """    
@@ -58,6 +61,7 @@ YoutubeCustomPrompt = """
     - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
         * `name` a custom image name with '.jpg' extension. A name should not repeated it should be unique
         * `description` an image description for this object video description that can be used for this object video and should match it
+        * `created` a (boolean) false
         
 
     2. Structure EXACTLY like this:
@@ -80,7 +84,8 @@ YoutubeCustomPrompt = """
     "ImageList": [
             {
                 "name" : "Text here",
-                "description" : "Text here"
+                "description" : "Text here",
+                "created" : False
             }
         ]
     }
@@ -109,7 +114,7 @@ YoutubeCustomPromptForAudioToVideo = """
     - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
         * `name` a custom image name with '.jpg' extension. A name should not repeated it should be unique
         * `description` an image description for this object video description that can be used for this object video and should match it
-        
+        * `created` a (boolean) false
 
     2. Structure EXACTLY like this:
     ```json
@@ -128,7 +133,8 @@ YoutubeCustomPromptForAudioToVideo = """
     "ImageList": [
             {
                 "name" : "Text here",
-                "description" : "Text here"
+                "description" : "Text here",
+                "created" : False
             }
         ]
     }
@@ -160,15 +166,57 @@ def get_account_existance(email):
     accountref = Account.objects.filter(email=email)
     return accountref.exists()
 
+
+@circuit
+def force_shutdown():
+    try:
+        if sys.platform == 'win32':
+            # Windows: Force shutdown immediately
+            subprocess.run(['shutdown', '/s', '/f', '/t', '0'], check=True)
+        elif sys.platform.startswith('linux'):
+            # Linux: Force power off (requires root)
+            subprocess.run(['poweroff', '-f'], check=True)
+        elif sys.platform == 'darwin':
+            # macOS: Immediate shutdown (requires root)
+            subprocess.run(['shutdown', '-h', 'now'], check=True)
+        else:
+            print("Unsupported operating system.")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e}")
+    except PermissionError:
+        print("Permission denied. Run the script as administrator/root.")
+
+
+import datetime
+async def update_file_async(new,dataval, folder_path):
+    """
+    Asynchronously appends the provided dataval to the file.
+    If the file does not exist, it is created.
+
+    Parameters:
+        dataval: Data to be written to the file.
+        filename (str): Name of the text file. Defaults to 'output.txt'.
+    """
+    if new:
+        file_path = os.path.join(folder_path,'Operation time.txt')
+        async with aiofiles.open(file_path, mode="w") as file:
+            await file.write(str(dataval) + "\n")
+    else:
+        file_path = os.path.join(folder_path,'Operation time.txt')
+        async with aiofiles.open(file_path, mode="a") as file:
+            await file.write(str(dataval) + "\n")
+
+
+
+
 @asyncCircuitBreaker
-async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
+async def RequestAIResponseFunc(prompt,email):
     """Generate AI text content asynchronously."""
     try:
-        try:
-            model = settings.AI_MODEL
-            response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
-        except Exception as e:
-            raise RetryCustomError("retry", "It seems there is an issue with your request. Try again later❌")
+       
+        model = settings.AI_MODEL
+        response = await asyncio.to_thread(model.generate_content, prompt)  # Run sync function in async environment
+       
         #print(response,type(response))
         cleaned_json_string = response.text.strip("```json\n").strip("```")
 
@@ -178,17 +226,7 @@ async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
         #response.text
         reponseval = {'type' : 'success','status' : 'success','result' : json_data}
         return reponseval
-    except RetryCustomError as e:
-        print("Custom DownloadError caught:")
-        print("Retry flag:", e.retry)
-        print("Message:", e.message)
-        responseval = {
-                'type': e.retry,
-                'status': 'error',
-                'result': e.message,
-                'NumberOfRequestRetry' : NumberOfRequestRetry
-        }
-        return responseval
+   
     except Exception as e:
         print(e)
         responseval = {
@@ -199,7 +237,7 @@ async def RequestAIResponseFunc(prompt,email,NumberOfRequestRetry):
         return responseval
 
 @asyncCircuitBreaker
-async def RequestRequestClearServerFunc(email):
+async def RequestRequestClearServerFunc(email,Shutdown):
     """Generate AI text content asynchronously."""
     try:
         folder_path = os.path.join(settings.MEDIA_ROOT, email, 'youtube')
@@ -207,6 +245,14 @@ async def RequestRequestClearServerFunc(email):
         if folder_exists:
             await asyncio.to_thread(shutil.rmtree, folder_path)
         
+        # print(Shutdown)
+        if Shutdown == 'True':
+            # print('toongle shutdown')
+            folder_path_user = os.path.join(settings.MEDIA_ROOT, email)
+            now = datetime.datetime.now()
+            short_date = now.strftime("%Y-%m-%dT%H:%M")
+            await update_file_async(new=False, dataval=f"Finished at: {short_date}", folder_path=folder_path_user)
+            force_shutdown()
         responseval = {'type': 'success', 'result': 'Files cleared successfully'}
         return responseval
     except Exception as e:
@@ -226,7 +272,7 @@ async def Scriptize(script, audio_file_path):
 
 
 @asyncCircuitBreaker
-async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
+async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType,send_progress):
     """Generate AI text content asynchronously."""
     try:
         if not email or not data or email == 'null' or email == '' or email == 'gestuser@gmail.com':
@@ -246,6 +292,7 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
             }
             return responseval
         
+        folder_path = os.path.join(settings.MEDIA_ROOT, email)
         social_media_folder_path = os.path.join(settings.MEDIA_ROOT, email, SocialMediaType)
         folder_exists = await asyncio.to_thread(os.path.exists, social_media_folder_path)
         if not folder_exists:
@@ -253,13 +300,17 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
         else:
             await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
             await asyncio.to_thread(os.mkdir, social_media_folder_path)
-            
+
+        now = datetime.datetime.now()
+        short_date = now.strftime("%Y-%m-%dT%H:%M")
+        await update_file_async(new=True, dataval=f"Started at: {short_date}", folder_path=folder_path)
         transcriptions = []
         video_type_list = []
         AudioNameList= []
         audio_list = []
         tasks = []
         position = 0
+        SpeechPosition = 1
         for i in data:
             script = i
             words = textwrap.wrap(script, width=len(script)//NumberOfImages)
@@ -278,7 +329,8 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
                 print('\n\n splited file name: ',splited_audio_name)
                 image_tranascipt_list.append({
                     "name": f'{spited_position}_{splited_audio_name}.jpg',
-                    "description": words_parts
+                    "description": str(words_parts),
+                    'created' : False
                 })
                 spited_position += 1
             
@@ -286,8 +338,14 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
             custom_audio_file_path = f'{email}/{SocialMediaType}/{filename}'
             audio_list.append(custom_audio_file_path)
             AudioNameList.append(filename)
-            position += 1
 
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Created {num2words(SpeechPosition, to='ordinal')} audio over {len(data)}'},
+                    type='ProgressInformation'
+            )
+
+            position += 1
+            SpeechPosition += 1
         # Wait for all audio processing tasks to complete concurrently
         await asyncio.gather(*tasks)
 
@@ -312,47 +370,44 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType):
         return responseval
 
 @asyncCircuitBreaker
-async def download_image(image_url, filename, emailval, SocialMediaType, retries=3, delay=2):
+async def download_image(image_url, filename, emailval, SocialMediaType, retries=1, delay=2):
     # You can create a persistent session outside of this function if needed.
-    for attempt in range(retries):
-        try:
-            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
-                async with session.get(image_url) as response:
-                    if response.status == 200:
-                        content = await response.read()
-                        folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
-                        file_path = os.path.join(folder_path, filename)
-                        
-                        # Check and remove existing file in a separate thread.
-                        exists = await asyncio.to_thread(os.path.exists, file_path)
-                        if exists:
-                            try:
-                                await asyncio.to_thread(os.remove, file_path)
-                                print(f"Existing File deleted: {file_path}")
-                            except Exception as e:
-                                print(f"Error deleting existing file {file_path}: {e}")
-                        
-                        # Save file using Django's FileSystemStorage offloaded to a thread.
-                        def save_file():
-                            custom_storage = FileSystemStorage(location=folder_path)
-                            with custom_storage.open(filename, 'wb') as file:
-                                file.write(content)
-                        await asyncio.to_thread(save_file)
-                        
-                        print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅")
-                        return filename
-                    else:
-                        error_msg = f"An error occurred when downloading your images {response.status} - {response.reason} ❌"
-                        print(f"\n\nFailed to download {filename} - {response.reason} ❌")
-                        raise RetryDownloadImageCustomError("retry", error_msg)
-        except RetryDownloadImageCustomError as e:
-            print(f"Attempt {attempt + 1} failed with error: {e}")
-            if attempt < retries - 1:
-                await asyncio.sleep(delay * (2 ** attempt))  # Exponential backoff.
-            else:
-                print(f"\n\nFailed to download {filename} - {response.reason} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
-                raise Exception(f"An error occurred when downloading your images {response.status} - {response.reason} ❌")
-                
+   
+    try:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+            async with session.get(image_url) as response:
+                if response.status == 200:
+                    content = await response.read()
+                    folder_path = os.path.join(settings.MEDIA_ROOT, emailval, SocialMediaType)
+                    file_path = os.path.join(folder_path, filename)
+                    
+                    # Check and remove existing file in a separate thread.
+                    exists = await asyncio.to_thread(os.path.exists, file_path)
+                    if exists:
+                        try:
+                            await asyncio.to_thread(os.remove, file_path)
+                            print(f"Existing File deleted: {file_path}")
+                        except Exception as e:
+                            print(f"Error deleting existing file {file_path}: {e}")
+                    
+                    # Save file using Django's FileSystemStorage offloaded to a thread.
+                    def save_file():
+                        custom_storage = FileSystemStorage(location=folder_path)
+                        with custom_storage.open(filename, 'wb') as file:
+                            file.write(content)
+                    await asyncio.to_thread(save_file)
+                    
+                    print(f"\n\nDownload Completed: {filename} ✅✅✅✅✅")
+                    return filename
+                else:
+                    error_msg = f"An error occurred when downloading your images {response.status} - {response.reason} ❌"
+                    print(f"\n\nFailed to download {filename} - {response.reason} ❌")
+                    raise Exception(error_msg)
+    except Exception as e:
+        print(f'\n\nerror is: {e}')
+        raise Exception("Seams like there is an issue when generating your image❌")
+
+
 
 @asyncCircuitBreaker
 async def generate_image_async(description, title,widthval = 1080,heightval = 1920 ):
@@ -374,11 +429,11 @@ async def generate_image_async(description, title,widthval = 1080,heightval = 19
         # Offload the synchronous image.save() call to a thread.
         await asyncio.to_thread(image.save, file=f'{title}.jpg')
     except Exception as e:
-        raise RetryCustomError("retry", "Seams like there is an issue when generating your image❌")
+        raise Exception("Seams like there is an issue when generating your image❌")
 
 
 @asyncCircuitBreaker
-async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequestRetry,VideosType):
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,VideosType,send_progress):
     """Generate AI images content asynchronously."""
     try:
         dataval = prompt
@@ -386,19 +441,28 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
         
         # Ensure the folder is created asynchronously.
         folder_exists = await asyncio.to_thread(os.path.exists, social_media_folder_path)
-        if not folder_exists:
-            await asyncio.to_thread(os.mkdir, social_media_folder_path)
-        else:
-            await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
-            await asyncio.to_thread(os.mkdir, social_media_folder_path)
+        
+        if IsRecreating == 'False':
+            if not folder_exists:
+                await asyncio.to_thread(os.mkdir, social_media_folder_path)
+            else:
+                await asyncio.to_thread(shutil.rmtree, social_media_folder_path)
+                await asyncio.to_thread(os.mkdir, social_media_folder_path)
             
         loopval = 0
+        ImagePosition = 1
         for items in dataval:
             objectval = items.get("ImageList", [])
             videoType = VideosType
            
             i = 0
+            InnerImagePosition = 1
             for objectval_items in objectval:
+                # print(objectval_items["created"],type(objectval_items["created"]))
+                if objectval_items["created"] == True:
+                    i += 1
+                    InnerImagePosition += 1
+                    continue
                 widthval = 1080 if videoType == 'shorts' else 1920
                 heightval = 1920 if videoType == 'shorts' else 1080 
                 print(f'\n\n{i} - {objectval_items}\n\n')           
@@ -410,6 +474,7 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
                 seed = 42  # Each seed generates a new image variation
                 model = 'flux'  # Using 'flux' as default if model is not provided
 
+                
                 # Construct API image URL.
                 API_image_url = f"https://pollinations.ai/p/{ImageDescription}?width={width}&height={height}&seed={seed}&model={model}"
                 
@@ -418,11 +483,27 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
                 await generate_image_async(ImageDescription, title,widthval,heightval)
                 # Download the generated image.
                 await download_image(API_image_url, title, email, SocialMediaType)
+
+                # print('\nbefore:',objectval_items)
+                if objectval_items["created"] != None:
+                    objectval_items["created"] = True
+                    # print('\nafter',objectval_items)
                 
                 storage_name = f'{email}/{SocialMediaType}/{title}'
                 print(f'\n\nAt object {loopval} generated {title}')
+                await send_progress(
+                    data={"Scope": "ImageCreation", "details": f'Created {num2words(InnerImagePosition, to='ordinal')} image over {len(objectval) -1}. For {ImagePosition} /{len(dataval)} video','url' : storage_name,'videoType' : videoType},
+                    type='ProgressInformation'
+                )
                 i += 1
+                InnerImagePosition += 1 
                 print(f'\nRemaining images {i}/{len(objectval)} images')
+
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Done with {num2words(ImagePosition, to='ordinal')} video image over {len(dataval)}'},
+                    type='ProgressInformation'
+            )
+            ImagePosition += 1  
             loopval += 1
             print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
@@ -430,33 +511,26 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,NumberOfRequest
             'type': 'success',
             'status': 'success',
             'result': 'All images processed',
-            'data': dataval
+            'data': dataval,
+            'IsRecreating' : IsRecreating
         }
         return responseval
     
-    except RetryCustomError as e:
-        print("Custom DownloadError caught:")
-        print("Retry flag:", e.retry)
-        print("Message:", e.message)
-        responseval = {
-                'type': e.retry,
-                'status': 'error',
-                'result': e.message,
-                'NumberOfRequestRetry' : NumberOfRequestRetry
-        }
-        return responseval
     except Exception as e:
         print(e)
+        num = loopval #loopval - 1 if loopval > 0 else 0
         responseval = {
             'type': 'error',
             'status': 'error',
             'result': f'It seems there is an issue with your request: {e}. Try again later',
-            'data' : dataval[:loopval]
+            'SuccessfulData' : dataval[:num],
+            'FailedData' : dataval[num:],
+            'IsRecreating' : IsRecreating
         }
         return responseval
 
 @asyncCircuitBreaker
-async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,NumberOfRequestRetry):
+async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRecreating,send_progress):
     """Generate AI images content asynchronously for transcripts."""
     try:
         dataval = prompt
@@ -464,13 +538,20 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,Numbe
         
         # No need to create or delete folder if not required, or replicate as in RequestCreateImagesFunc.
         loopval = 0
+        videoLevel = 1
         for items in dataval:
             objectval = items.get("ImageList", [])
             videoType_list = items.get("videoType", 'shorts')
             videoType = videoType_list
+
             i = 0
+            imageLevel = 1
             for objectval_items in objectval:
-                
+                # print(objectval_items["created"],type(objectval_items["created"]))
+                if objectval_items["created"] == True:
+                    i += 1
+                    InnerImagePosition += 1
+                    continue
                 widthval = 1080 if videoType == 'shorts' else 1920
                 heightval = 1920 if videoType == 'shorts' else 1080 
                 print('videotype: ',videoType)
@@ -485,38 +566,46 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,Numbe
                 
                 await generate_image_async(ImageDescription, title,widthval,heightval)
                 await download_image(API_image_url, title, email, SocialMediaType)
+
+                # print('\nbefore:',objectval_items)
+                if objectval_items["created"] != None:
+                    objectval_items["created"] = True
+                    # print('\nafter',objectval_items)
                 storage_name = f'{email}/{SocialMediaType}/{title}'
                 print(f'\n\nAt object {loopval} generated {title}')
+                await send_progress(
+                    data={"Scope": "ImageCreation", "details": f'Created {num2words(imageLevel, to='ordinal')} image over {len(objectval) -1}. For {videoLevel} /{len(dataval)} video','url' : storage_name,'videoType' : videoType},
+                    type='ProgressInformation'
+                )
                 i += 1
+                imageLevel += 1
                 print(f'\nRemaining images {i}/{len(objectval)} images')
             loopval += 1
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Done with {num2words(videoLevel, to='ordinal')} video image over {len(dataval)}'},
+                    type='ProgressInformation'
+            )
+            videoLevel += 1
             print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
         responseval = {
             'type': 'success',
             'status': 'success',
             'result': 'All images processed',
-            'data': dataval
-        }
-        return responseval
-    except RetryCustomError as e:
-        print("Custom DownloadError caught:")
-        print("Retry flag:", e.retry)
-        print("Message:", e.message)
-        responseval = {
-                'type': e.retry,
-                'status': 'error',
-                'result': e.message,
-                'NumberOfRequestRetry' : NumberOfRequestRetry
+            'data': dataval,
+            'IsRecreating' : IsRecreating
         }
         return responseval
     except Exception as e:
         print(e)
+        num =  loopval #loopval - 1 if loopval > 0 else 0
         responseval = {
             'type': 'error',
             'status': 'error',
-            'result': f'It seems there is an issue with your request {e}. Try again later',
-            'data' : dataval[:loopval]
+            'result': f'It seems there is an issue with your request: {e}. Try again later',
+            'SuccessfulData' : dataval[:num],
+            'FailedData' : dataval[num:],
+            'IsRecreating' : IsRecreating
         }
         return responseval
 
@@ -682,7 +771,7 @@ async def get_authenticated_service(email, credential_file_path, token_path):
 
     except Exception as e:
         print(e)
-        raise RetryCustomError("retry", "There seams to be a proble when authenticating you❌")
+        raise Exception("There seams to be a proble when authenticating you❌")
 
 
 async def TestFunc():
@@ -711,7 +800,7 @@ async def is_video_a_short(video_path):
 
 
 @asyncCircuitBreaker
-async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,NumberOfRequestRetry,tokenPathName):
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,tokenPathName,send_progress):
     """Upload video to YouTube with metadata"""
     try:
         
@@ -724,6 +813,10 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
         
         # Try using stored credentials
         ### MADE THE FUNCTION ASYNC 
+        await send_progress(
+            data={"Scope": "Information", "details": f'Checking authentication for {SocialMediaType}'},
+            type='ProgressInformation'
+        )
         service = await get_authenticated_service(email = email,credential_file_path = full_credential_file_path,token_path=full_token_path)
         ### LOOPING SHOULD BEGGIN HERE
         #print(json.dumps(bodyval,indent=4))
@@ -731,9 +824,14 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
         print(f'\n\n\n 🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀🚀')
         position = 0
         video_id_list = []
+        videoLevel = 1
         for items in dataval:
             full_video_path = os.path.join(settings.MEDIA_ROOT, VideoUrl[position])
-
+            snippets = items.get("snippet", {})
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Processing {num2words(videoLevel, to='ordinal')} video: {snippets.get("title", '')}'},
+                    type='ProgressInformation'
+            )
             if not os.path.exists(full_video_path):
                 raise FileNotFoundError(f"Video file missing: {full_video_path}")
             media = MediaFileUpload(full_video_path, 
@@ -743,7 +841,7 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
             insert_request = service.videos().insert(
                 part="snippet,status",
                 body={
-                    "snippet": items.get("snippet", {}),
+                    "snippet": snippets,
                     "status": items.get("status", {})
                 },
                 media_body=media
@@ -752,7 +850,8 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
             # Execute async upload
             response = await asyncio.to_thread(insert_request.execute)
             def execute_request():
-                print(f'uploading starts: {position}')
+                print(f'uploading starts: {videoLevel}')
+                
                 response = None
                 while response is None:
                     status, response = insert_request.next_chunk()
@@ -760,12 +859,19 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
                         print(f"Upload {int(status.progress() * 100)}%")
                 return response
             
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Uploading {num2words(videoLevel, to='ordinal')} video: {snippets.get("title", '')}'},
+                    type='ProgressInformation'
+            )
             response = await asyncio.to_thread(execute_request)
 
             print(f"Video uploaded with ID: {response['id']}")
             video_id = response['id']
             video_id_list.append(video_id)
-            
+            await send_progress(
+                    data={"Scope": "Information", "details": f'Uploaded {num2words(videoLevel, to='ordinal')} video over {len(dataval) -1}'},
+                    type='ProgressInformation'
+            )
             # Before thumbnail upload
              # Check if the video is a YouTube Short asynchronously.
             is_short = await is_video_a_short(full_video_path)
@@ -791,8 +897,11 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
                     except Exception as e:
                         print('Error when uploading thumbnail ❌:', e)
                     print('\n\nThumbnail uploaded')
-                    
+
+
+
             position += 1
+            videoLevel += 1
 
         print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
         return {
@@ -802,17 +911,6 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,Numbe
             'video_id': video_id_list
         }
         
-    except RetryCustomError as e:
-        print("Custom DownloadError caught:")
-        print("Retry flag:", e.retry)
-        print("Message:", e.message)
-        responseval = {
-                'type': e.retry,
-                'status': 'error',
-                'result': e.message,
-                'NumberOfRequestRetry' : NumberOfRequestRetry
-        }
-        return responseval
     except Exception as e:
         print(f"Upload error: {str(e)} ❌❌❌❌❌❌❌❌❌❌❌❌❌❌❌")
         responseval = {
@@ -1182,12 +1280,11 @@ class AIConsumer(AsyncWebsocketConsumer):
                 email = sanitize_string(text_data_json['email'])
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 SocialMediaPromptSelected = YoutubeCustomPrompt
                 image_list_script = f'each objects ImageList should have {numberOfImagesPerObject} objects'
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected} {image_list_script}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_response(prompt, email,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_ai_response(prompt, email))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestAITranscriptResponse'):
@@ -1195,10 +1292,9 @@ class AIConsumer(AsyncWebsocketConsumer):
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
                 SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_ai_transcript_response(prompt, email))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestAITTSResponse'):
@@ -1206,10 +1302,9 @@ class AIConsumer(AsyncWebsocketConsumer):
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
                 SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_tts(prompt, email,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_ai_tts(prompt, email))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImages'):
@@ -1217,19 +1312,20 @@ class AIConsumer(AsyncWebsocketConsumer):
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 VideosType = sanitize_string(text_data_json['VideosType'])
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                IsRecreating = sanitize_string(text_data_json['IsRecreating'])
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,NumberOfRequestRetry,VideosType))
+                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,IsRecreating,VideosType))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImagesTranscript'):
                 email = sanitize_string(text_data_json['email'])
+                
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
+                IsRecreating = sanitize_string(text_data_json['IsRecreating'])
 
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,NumberOfRequestRetry))
+                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,IsRecreating))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestUploadVideos'):
@@ -1238,15 +1334,15 @@ class AIConsumer(AsyncWebsocketConsumer):
                 VideoUrl = text_data_json['VideoUrl']
                 tokenPathName = text_data_json['tokenPathName']
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
-                NumberOfRequestRetry = int(sanitize_string(text_data_json['NumberOfRequestRetry']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry,tokenPathName))
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,tokenPathName))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestClearServer'):
                 email = sanitize_string(text_data_json['email'])
+                Shutdown = sanitize_string(text_data_json['Shutdown'])
                 # Track the task
-                task = asyncio.create_task(self.handle_request_clear_server(email))
+                task = asyncio.create_task(self.handle_request_clear_server(email,Shutdown))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestTextToSpeech'):
@@ -1259,29 +1355,29 @@ class AIConsumer(AsyncWebsocketConsumer):
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
 
-    async def handle_request_ai_response(self, prompt, email,NumberOfRequestRetry):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_ai_response(self, prompt, email):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email)
         await self.send_msg(data=val, type='RequestAIResponse')
-    async def handle_request_ai_transcript_response(self, prompt, email,NumberOfRequestRetry):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_ai_transcript_response(self, prompt, email):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email)
         await self.send_msg(data=val, type='RequestAITranscriptResponse')
-    async def handle_request_ai_tts(self, prompt, email,NumberOfRequestRetry):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_ai_tts(self, prompt, email):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email)
         await self.send_msg(data=val, type='RequestAITTSResponse')
-    async def handle_request_clear_server(self, email):
-        val = await RequestRequestClearServerFunc(email=email)
+    async def handle_request_clear_server(self, email,Shutdown):
+        val = await RequestRequestClearServerFunc(email=email,Shutdown=Shutdown)
         await self.send_msg(data=val, type='RequestClearServer')
     async def handle_request_text_to_speech(self, email,data,NumberOfImages,SocialMediaType):
-        val = await RequestTextToSpeechFunc(email=email,data=data,NumberOfImages=NumberOfImages,SocialMediaType=SocialMediaType)
+        val = await RequestTextToSpeechFunc(email=email,data=data,NumberOfImages=NumberOfImages,SocialMediaType=SocialMediaType,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestTextToSpeech')
-    async def handle_request_create_images(self, prompt, email,SocialMediaType,NumberOfRequestRetry,VideosType):
-        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry,VideosType=VideosType)
+    async def handle_request_create_images(self, prompt, email,SocialMediaType,IsRecreating,VideosType):
+        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,VideosType=VideosType,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestCreateImages')
-    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,NumberOfRequestRetry):
-        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,NumberOfRequestRetry=NumberOfRequestRetry)
+    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,IsRecreating):
+        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestCreateImagesTranscript')
-    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,NumberOfRequestRetry,tokenPathName):
-        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,NumberOfRequestRetry=NumberOfRequestRetry,tokenPathName=tokenPathName)
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,tokenPathName):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,tokenPathName=tokenPathName,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestUploadVideos')
     
 

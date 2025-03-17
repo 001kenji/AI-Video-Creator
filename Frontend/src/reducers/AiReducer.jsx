@@ -17,9 +17,7 @@ import {
 }from '../actions/types'
 
 const initialState = {
-    AiVideoMergeUrl : [
-        "kenjicladia@gmail.com/youtube/all_for_all_audio_0_with_audio.mp4"
-      ],
+    AiVideoMergeUrl : [],
     AudioToVideoTranscription : [],
     FullAudioToVideoTranscription : [],
     AudioToVideoTranscriptionStatus : '',

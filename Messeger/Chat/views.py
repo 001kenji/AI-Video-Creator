@@ -793,7 +793,8 @@ async def transcribe_and_split_audio_api(audio_list, num_splits):
                 print('\n\n splited file name: ',splited_audio_name[0])
                 tranascipt_list.append({
                     "name": f'{spited_position}_{splited_audio_name[0]}.jpg',
-                    "description": words_parts
+                    "description": str(words_parts),
+                    'created' : False
                 })
                 spited_position += 1
                 
