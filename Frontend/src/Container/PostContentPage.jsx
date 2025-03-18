@@ -126,7 +126,11 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'isChecked' : false,
         'Shutdown' : false,
     })
-    const [TriggerDoNotDisturb,SetTriggerDoNotDisturb] = useState('')
+    const [TriggerDoNotDisturb,SetTriggerDoNotDisturb] = useState({
+        'Scope' : '',
+        'Number' : 0
+    })
+
     const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
@@ -236,7 +240,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         }
                     })
                     // console.log('running dnd')
-                    SetTriggerDoNotDisturb('Upload')
+                    
+                    var num = TriggerDoNotDisturb.Number
+                    SetTriggerDoNotDisturb((e) => {
+                        return {
+                            ...e,
+                            'Scope' : 'Upload',
+                            'Number' : num + 1
+                        }
+                    })
                     
                 }else{
                     SetPostContentContainer((e)=> {
@@ -513,34 +525,34 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     },[PostContentContainer.VideoAudioModeOptions,AudioUpload,OneForAllAudioUpload])
 
     useEffect(() =>{
-        if(TriggerDoNotDisturb == 'VerifyPreview'){
+        if(TriggerDoNotDisturb.Scope == 'VerifyPreview'){
             setTimeout(() => {
                 ToongleFirstStepLeveAudioToVideo('VerifyPreview')  
             }, 3000);  
-        }else if(TriggerDoNotDisturb == 'Convert'){
+        }else if(TriggerDoNotDisturb.Scope == 'Convert'){
             setTimeout(() => {
                 ToongleFirstStepLeveAudioToVideo('Convert') 
            }, 3000);
-        }else if(TriggerDoNotDisturb == 'NextVoiceToVideo'){
+        }else if(TriggerDoNotDisturb.Scope == 'NextVoiceToVideo'){
             setTimeout(() => {
                 ToongleFirstStepLeve2('next','VoiceToVideo')
             }, 3000);
-        }else if(TriggerDoNotDisturb == 'NextImageToVideo'){
+        }else if(TriggerDoNotDisturb.Scope == 'NextImageToVideo'){
             setTimeout(() => {
                ToongleFirstStepLeve2('next','ImageToVideo') 
             }, 3000);
             
-        }else if(TriggerDoNotDisturb == 'MergeTranscript'){
+        }else if(TriggerDoNotDisturb.Scope == 'MergeTranscript'){
             setTimeout(() => {
                 ToongleSecondProgressLevel('MergeTranscript')
             }, 3000);
-        }else if(TriggerDoNotDisturb == 'RecreateTranscript'){
+        }else if(TriggerDoNotDisturb.Scope == 'RecreateTranscript'){
             setTimeout(() => {
                 ToongleSecondProgressLevel('RecreateTranscript')
             }, 3000);
-        }else if (TriggerDoNotDisturb == 'Upload'){
+        }else if (TriggerDoNotDisturb.Scope == 'Upload'){
             ToongleThirdProgressLevel('Upload')
-        }else if(TriggerDoNotDisturb == 'Reset'){
+        }else if(TriggerDoNotDisturb.Scope == 'Reset'){
             setTimeout(() => {
                 ToongleThirdProgressLevel('Reset')
             }, 3000);
@@ -971,12 +983,12 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }
             })
             if(DoNotDisturbContainer.isChecked){
-                console.log('running dnd')
+                // console.log('running dnd')
                 if(scope == 'ImageToVideo'){
                     ToongleSecondProgressLevel('Create')
                     
                 }else if (scope == 'VoiceToVideo'){
-                    console.log('running dnd')
+                    // console.log('running dnd')
                     ToongleSecondProgressLevel('CreateTranscript') 
                     
                 }
@@ -1038,7 +1050,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             type :ProgressInformationReducer,
                             payload : 'Successfuly generated.Generating your images in 3 seconds'
                         })                      
-                        SetTriggerDoNotDisturb('NextImageToVideo')    
+                            
+                        var num = TriggerDoNotDisturb.Number
+                        SetTriggerDoNotDisturb((e) => {
+                            return {
+                                ...e,
+                                'Scope' : 'NextImageToVideo',
+                                'Number' : num + 1
+                            }
+                        })
                         
                         
                     }else{
@@ -1115,7 +1135,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 'progressLevel' : 1,
                             }
                         })
-                        SetTriggerDoNotDisturb('NextVoiceToVideo')
+                       
+                        var num = TriggerDoNotDisturb.Number
+                        SetTriggerDoNotDisturb((e) => {
+                            return {
+                                ...e,
+                                'Scope' : 'NextVoiceToVideo',
+                                'Number' : num + 1
+                            }
+                        })
                         
                     }else{
                         dispatch({
@@ -1169,7 +1197,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 }
                             })
                             console.log('mismatch',Listval,AudioToVideoContainer.ImageList)
-                            SetTriggerDoNotDisturb('Convert')
+                            
+                            var num = TriggerDoNotDisturb.Number
+                            SetTriggerDoNotDisturb((e) => {
+                                return {
+                                    ...e,
+                                    'Scope' : 'Convert',
+                                    'Number' : num + 1
+                                }
+                            })
                             
                         }else{
                             SetPostContentContainer((e) => {
@@ -1207,7 +1243,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     'progressLevel' : 1,
                                 }
                             })
-                            SetTriggerDoNotDisturb('NextVoiceToVideo')
+                            
+                            var num = TriggerDoNotDisturb.Number
+                            SetTriggerDoNotDisturb((e) => {
+                                return {
+                                    ...e,
+                                    'Scope' : 'NextVoiceToVideo',
+                                    'Number' : num + 1
+                                }
+                            })
                             
                             
                     }else{
@@ -1338,6 +1382,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     if(DoNotDisturbContainer.isChecked){
                         // console.log('running dnd')
                         ToongleSecondProgressLevel('Recreate')
+                     
                     }
                 }
             }else if(data.type == 'RequestCreateImagesTranscript'){
@@ -1370,7 +1415,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     'ShowRecreatedImages' : false
                                 }
                             })
-                            SetTriggerDoNotDisturb('MergeTranscript')
+                           
+                            var num = TriggerDoNotDisturb.Number
+                            SetTriggerDoNotDisturb((e) => {
+                                return {
+                                    ...e,
+                                    'Scope' : 'MergeTranscript',
+                                    'Number' : num + 1
+                                }
+                            })
                             
                         }else{
                             dispatch({
@@ -1424,7 +1477,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                     'ShowRecreatedImages' : false
                                 }
                             })
-                            SetTriggerDoNotDisturb('MergeTranscript')
+                            
+                            var num = TriggerDoNotDisturb.Number
+                            SetTriggerDoNotDisturb((e) => {
+                                return {
+                                    ...e,
+                                    'Scope' : 'MergeTranscript',
+                                    'Number' : num + 1
+                                }
+                            })
                             
                         }else{
                             dispatch({
@@ -1465,7 +1526,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     })
                 }else {
                     if(DoNotDisturbContainer.isChecked){
-                        console.log('running dnd after error in image creation')
+                        // console.log('running dnd after error in image creation')
                         dispatch({
                             type :ProgressInformationReducer,
                             payload : `${val['result']}. Recreating in 3 seconds`
@@ -1488,7 +1549,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             }
                         })
                         // ShowToast(val['type'],val['result'])
-                        SetTriggerDoNotDisturb('RecreateTranscript')
+                        var num = TriggerDoNotDisturb.Number
+                        SetTriggerDoNotDisturb((e) => {
+                            return {
+                                ...e,
+                                'Scope' : 'RecreateTranscript',
+                                'Number' : num + 1
+                            }
+                        })
                         
                     }else {
                         SetPostContentContainer((e) => {
@@ -1509,8 +1577,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                             }
                         })
                         ShowToast(val['type'],val['result'])
-                    }
-                    
+                    }                    
                 }
             }else if(data.type == 'RequestUploadVideos'){
                 var val = data.message
@@ -1548,7 +1615,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 'ClearServer' : true
                             }
                         })
-                        SetTriggerDoNotDisturb('Reset')
+                        
+                        var num = TriggerDoNotDisturb.Number
+                        SetTriggerDoNotDisturb((e) => {
+                            return {
+                                ...e,
+                                'Scope' : 'Reset',
+                                'Number' : num + 1
+                            }
+                        })
                         
                     }else{
                         dispatch({
@@ -1597,6 +1672,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 var val = data.message
                 PlayNotifiactions('play')
                 ShowToast(val['type'],val['result'])
+                SetTriggerDoNotDisturb((e) => {
+                    return {
+                        ...e,
+                        'Scope' : '',
+                        'Number' : num + 1
+                    }
+                })
             }else if(data.type == 'RequestTextToSpeech'){
                 var val = data.message
                 PlayNotifiactions('play')
@@ -1627,7 +1709,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                                 'Scope' : 'TextToSpeech'
                             }
                         })
-                        SetTriggerDoNotDisturb('VerifyPreview')
+                        var num = TriggerDoNotDisturb.Number
+                        SetTriggerDoNotDisturb((e) => {
+                            return {
+                                ...e,
+                                'Scope' : 'VerifyPreview',
+                                'Number' : num + 1
+                            }
+                        })
                                                 
                     }else{
                         dispatch({
@@ -1715,7 +1804,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : false
                 }
             })
-            SetTriggerDoNotDisturb('')
+            
+            var num = TriggerDoNotDisturb.Number
+            SetTriggerDoNotDisturb((e) => {
+                return {
+                    ...e,
+                    'Scope' : '',
+                    'Number' : num + 1
+                }
+            })
             
         }
         WsDataStream.current.onclose = function (e) {

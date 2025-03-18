@@ -242,17 +242,22 @@ async def RequestRequestClearServerFunc(email,Shutdown):
     try:
         folder_path = os.path.join(settings.MEDIA_ROOT, email, 'youtube')
         folder_exists = await asyncio.to_thread(os.path.exists, folder_path)
-        if folder_exists:
-            await asyncio.to_thread(shutil.rmtree, folder_path)
-        
+        try:
+            if folder_exists:
+                await asyncio.to_thread(shutil.rmtree, folder_path)
+        except Exception as e:
+            print(e)
         # print(Shutdown)
-        if Shutdown == 'True':
-            # print('toongle shutdown')
-            folder_path_user = os.path.join(settings.MEDIA_ROOT, email)
-            now = datetime.datetime.now()
-            short_date = now.strftime("%Y-%m-%dT%H:%M")
-            await update_file_async(new=False, dataval=f"Finished at: {short_date}", folder_path=folder_path_user)
-            force_shutdown()
+        try:
+            if Shutdown == 'True':
+                # print('toongle shutdown')
+                folder_path_user = os.path.join(settings.MEDIA_ROOT, email)
+                now = datetime.datetime.now()
+                short_date = now.strftime("%Y-%m-%dT%H:%M")
+                await update_file_async(new=False, dataval=f"Finished at: {short_date}", folder_path=folder_path_user)
+                force_shutdown()
+        except Exception as e:
+            print(e)
         responseval = {'type': 'success', 'result': 'Files cleared successfully'}
         return responseval
     except Exception as e:
@@ -550,7 +555,7 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRec
                 # print(objectval_items["created"],type(objectval_items["created"]))
                 if objectval_items["created"] == True:
                     i += 1
-                    InnerImagePosition += 1
+                    imageLevel += 1
                     continue
                 widthval = 1080 if videoType == 'shorts' else 1920
                 heightval = 1920 if videoType == 'shorts' else 1080 
