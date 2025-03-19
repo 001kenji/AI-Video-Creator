@@ -93,6 +93,8 @@ export const FetchUserProfile = (props) => async dispatch => {
                 'AccountID' : val[1]['id'],
                 'ProfilePic' : val[1]['ProfilePic'],
                 'IsOwner' : val[0]['IsOwner'],
+                'notification_sound_choices' : val[1]['notification_sound_choices'],
+                'NotificationEffect' : val[1]['notification_sound']
             }
            dispatch({
             type : ProfileAboutReducer,

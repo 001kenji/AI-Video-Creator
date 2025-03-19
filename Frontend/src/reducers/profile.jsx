@@ -20,7 +20,8 @@ const initialState = {
         'AccountID' : '',
         'AccountName' : 'Gest',
         'IsOwner' : false,
-        'IsFollowing' : false
+        'NotificationEffect' : '',
+        'notification_sound_choices' : []
     }
 };
 

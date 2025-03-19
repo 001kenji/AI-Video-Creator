@@ -54,7 +54,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'Name' : '',
         'src' : ''
     })
-    const ProfileDB = useSelector((state) => state.ProfileReducer.ProfileAbout)
+    const ProfileDB = useSelector((state) => state.ProfileReducer.ProfileAccount)
     const ProfileYoutubeChannels = useSelector((state) => state.ProfileReducer.ProfileYoutubeChannels)
     const [SelectedtokenPathName,SetSelectedtokenPathName] = useState('token.json')
     const [ProfilePicturePhoto,SetProfilePicturePhoto] = useState( db != null ? db.ProfilePic : ProfileTestImg)
@@ -191,6 +191,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
     const [SelectedAiVideoMergeUrl,SetSelectedAiVideoMergeUrl] = useState(0)
     const [SelectedVideoImage,SetSelectedVideoImage] = useState(0)
     const NotificationPlayer = useRef(null)
+    const [NotificationPlayerSrc,SetNotificationPlayerSrc] = useState('') 
     const WsDataStream = useRef(null)
     const Theme = useSelector((state)=> state.auth.Theme)  
     // Determine the fixed height based on the current carousel type
@@ -223,11 +224,20 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 'AccountID' : extrainfo,
                 'IsOwner' : true,
             }
-            // PlayNotifiactions('play')
+            
             FetchUserProfile(JSON.stringify([data]))
         }      
     },[db,extrainfo])
- 
+    
+    useEffect(()=>{
+        if(ProfileDB != null){
+            if(ProfileDB.NotificationEffect && ProfileDB.NotificationEffect != ''){
+                SetNotificationPlayerSrc(ProfileDB.NotificationEffect)
+                // PlayNotifiactions('play')
+            }
+        }
+    },[ProfileDB])
+
     useEffect(() => {
         if (AiVideoMergeUrl.length != 0){
             dispatch({
@@ -639,6 +649,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 }
             })
             CreationStateRestorer('restore')
+            PlayNotifiactions('play')
         }else if(props == 'dismiss'){
             SetCreationStateControllContainer((e)=> {
                 return {
@@ -3189,7 +3200,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     
                 </div>
             </div>
-            <audio ref={NotificationPlayer} loop={false} className=" hidden" src={`${import.meta.env.VITE_APP_API_URL}/media/notifications/notification.wav`} controls></audio>
+            <audio ref={NotificationPlayer} loop={false} className=" hidden" src={`${import.meta.env.VITE_APP_API_URL}/media/notifications/${NotificationPlayerSrc}`} controls></audio>
 
             <section className={`  md:w-full  justify-between flex flex-col relative overflow-x-hidden overflow-y-visible w-full rounded-sm  md:mx-auto bg-transparent dark:text-slate-100 m-auto   h-full`}>
                 <small className=" text-slate-600 dark:text-slate-500 text-center" >It just takes three steps</small>

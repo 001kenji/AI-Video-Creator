@@ -1398,6 +1398,41 @@ def RequestRevokeYoutubeConnectionFunc(email,token,tokenName):
         reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
         return reponseval
 
+@circuit
+@sync_to_async
+def RequestUpdateNotificationFunc(email,data):
+    try:
+        if email and data :
+            emailval = email
+            
+            if emailval == 'null' or emailval == '' or emailval == 'gestuser@gmail.com':
+                responseval = {'type' : 'error','result' : 'Sign Up to manage repository'}
+                return responseval
+            accountRef = Account.objects.filter(email = email)
+            
+            allowed_sounds = [choice[0] for choice in Account.NOTIFICATION_SOUND_CHOICES]
+
+             # Validate that the new sound is one of the allowed choices
+            if data not in allowed_sounds:
+                responseval = {'type' : 'error','result' : 'Invalid notification sound selected.'}
+                return responseval
+            
+            accountRef.update(notification_sound = data)
+            # Check if any account was found
+            if not accountRef.exists():
+                responseval = {'type' : 'error','result' : 'Seams like this account cannot be found. Try again later'}
+                return responseval
+            
+
+            responseval = {'type' : 'success','result' : f'Notification updated successfuly','sound':data}
+            return responseval
+        else:
+            responseval = {'type' : 'error','result' : 'Seams like there is an issue. Try again later'}
+            return responseval
+    except Exception as e:
+        #print(e)
+        reponseval = {'type' : 'error','status' : 'error','result' : 'Seams like there is an issue. Try again later'}
+        return reponseval
 
 
 class AIConsumer(AsyncWebsocketConsumer):
@@ -1650,4 +1685,9 @@ class ChatList(AsyncWebsocketConsumer):
                 tokenName = sanitize_string(text_data_json['tokenName'])
                 val = await RequestRevokeYoutubeConnectionFunc(email=email,token=token,tokenName=tokenName)
                 await self.send_msg(data=val,type='RequestRevokeYoutubeConnection') 
+            elif (message == 'RequestUpdateNotification'):
+                email = sanitize_string(text_data_json['AccountEmail'])
+                data = sanitize_string(text_data_json['data'])
+                val = await RequestUpdateNotificationFunc(email=email,data=data)
+                await self.send_msg(data=val,type='RequestUpdateNotification') 
                 

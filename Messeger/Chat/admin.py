@@ -119,7 +119,7 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','password','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','ProfileAbout','YoutubeChannels')
+                'fields' : ('ProfilePic','ProfileAbout','notification_sound','YoutubeChannels')
             })
             ,)
         else:
@@ -128,7 +128,7 @@ class UserAccountAdmin (admin.ModelAdmin):
                 'fields': ('email', 'name','is_active', 'is_staff','is_superuser')
             }),
             ('Profile',{
-                'fields' : ('ProfilePic','ProfileAbout','YoutubeChannels')
+                'fields' : ('ProfilePic','ProfileAbout','notification_sound','YoutubeChannels')
             })
             ,)
         return New_fieldsets 

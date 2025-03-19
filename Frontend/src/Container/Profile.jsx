@@ -12,6 +12,7 @@ import { HiOutlineHome } from "react-icons/hi2";
 import { IoLockOpenOutline } from "react-icons/io5";
 import { MdOutlineAdd } from "react-icons/md";
 import { TiTickOutline } from "react-icons/ti";
+import { IoPlayCircleOutline } from "react-icons/io5";
 import Cookies from 'js-cookie'
 import { MdOutlineModeEditOutline } from "react-icons/md";
 import { IoIosAddCircleOutline } from "react-icons/io";
@@ -68,6 +69,8 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     const UserName = db != null ? db.name : 'null'
     const [IsEditingProfile,SetIsEditingProfile] = useState(false)
     const [IsAddingFolder,SetIsAddingFolder] = useState(false)
+    const NotificationPlayer = useRef(null)
+    const TestNotificationPlayer = useRef(null)
     const [IsFiltering,SetIsFiltering] = useState(false)
     const Theme = useSelector((state)=> state.auth.Theme)
     const [folderName,SetfolderName] = useState('')
@@ -102,7 +105,10 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
         'AccountName' : 'Gest',
         'IsOwner' : false,
         'CoverPhoto' : '',
-        'ProfilePic' : ''
+        'ProfilePic' : '',
+        'NotificationEffect' : '',
+        'NotificationChoices' : [],
+        'NotificationEffectName' : ''
     })
     const [Upload,SetUpload] = useState({
         file : null,
@@ -133,7 +139,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     
     useLayoutEffect(()=> {
         //console.log(UserID,extrainfo,UserEmail,ProfileAccount.AccountEmail)
-        
+            
             //console.log('fetching')
             if(UserID == extrainfo){
                 
@@ -152,8 +158,8 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                         'AccountEmail' : UserEmail,
                         'AccountID' : UserID,
                         'IsOwner' : true,
-                        'followers' : 0,
-                        'following' : 0
+                        'NotificationChoices' : [],
+                        'NotificationEffect' : ''
                     }
                 })
                 FetchUserProfile(JSON.stringify([data]))
@@ -177,8 +183,8 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                         'AccountEmail' : IsStore ? StoreProfileAccount.AccountEmail : ProfileAccount.AccountEmail,
                         'AccountID' : IsStore ? StoreProfileAccount.AccountID : ProfileAccount.AccountID,
                         'IsOwner' : false,
-                        'followers' : 0,
-                        'following' : 0
+                        'NotificationChoices' : [],
+                        'NotificationEffect' : ''
                     }
                 })
                 FetchUserProfile(JSON.stringify([data]))
@@ -197,11 +203,13 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
     
     
     useEffect(() => {
-        //console.log('called',StoreProfileAccount)
+        // console.log('called',StoreProfileAccount)
         if(Object.keys(StoreProfileAccount).length != 0 && StoreProfileAccount != null){
             setValue('UserName',StoreProfileAccount.AccountName)
             var IsOwner = StoreProfileAccount.IsOwner != null ? StoreProfileAccount.IsOwner == 'True' ? true : false : false
-             var ProfilePicurlpath = StoreProfileAccount.ProfilePic != null  ? StoreProfileAccount.ProfilePic : ProfileAccount.ProfilePic
+            var ProfilePicurlpath = StoreProfileAccount.ProfilePic != null  ? StoreProfileAccount.ProfilePic : ProfileAccount.ProfilePic
+            var userNotificationEffect = String(StoreProfileAccount.NotificationEffect).split('.wav')
+            // console.log(userNotificationEffect,StoreProfileAccount.NotificationEffect)
             SetProfileAccount((e) => {
                 return{
                     ...e,
@@ -211,10 +219,13 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     'AccountID' : StoreProfileAccount.AccountID  != null ? StoreProfileAccount.AccountID : ProfileAccount.AccountID,
                     'CoverPhoto' : ProfilePicurlpath,
                     'ProfilePic' : ProfilePicurlpath,
+                    'NotificationChoices' : StoreProfileAccount.notification_sound_choices,
+                    'NotificationEffect' : userNotificationEffect[0],
+                    'NotificationEffectName' : StoreProfileAccount.NotificationEffect
                 }
             })          
            
-            var profilepicval = `${import.meta.env.VITE_APP_API_URL}/media${ProfilePicurlpath}`
+            var profilepicval = `${import.meta.env.VITE_APP_API_URL}${ProfilePicurlpath}`
             SetProfileCoverPhoto(profilepicval)
             SetProfilePicturePhoto(profilepicval)          
            
@@ -245,7 +256,18 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
             UploadProfilePicture.current.click()
         }        
     }
-  
+    function PlayNotifiactions(props){
+        if(NotificationPlayer.current){
+            NotificationPlayer.current.volume = 0.5;
+            NotificationPlayer.current.play()
+        }
+    }
+    function PlayTestNotifiactions(props){
+        if(TestNotificationPlayer.current){
+            TestNotificationPlayer.current.volume = 0.5;
+            TestNotificationPlayer.current.play()
+        }
+    }
     const ToogleProfilePictureUpload = (val) => {
        
         var File =  UploadProfilePicture.current.files[0] ?  UploadProfilePicture.current.files[0] : val
@@ -455,7 +477,7 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     })
                 }
                 
-            }if(data.type == 'RequestRevokeYoutubeConnection') {
+            }else if(data.type == 'RequestRevokeYoutubeConnection') {
                 var val = data.message
                 if (val['type'] == 'success') {
                     SetFolderList(val['list'])
@@ -467,6 +489,17 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
 
                 }else {
                     ShowToast(val['type'],val['result'])
+                }
+                
+            }else if(data.type == 'RequestUpdateNotification') {
+                var val = data.message
+                if (val['type'] == 'success') {
+                    ShowToast('success',val['result'])
+                    NotificationPlayer.current.src = `${import.meta.env.VITE_APP_API_URL}/media/notifications/${val['sound']}`
+                    PlayNotifiactions()
+                    
+                }else {
+                    ShowToast('warning',val['result'])
                 }
                 
             }
@@ -541,13 +574,21 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                         'email' : UserEmail
                     })
                 )
-            }if(msg == 'RequestRevokeYoutubeConnection') {
+            }else if(msg == 'RequestRevokeYoutubeConnection') {
                 WsDataStream.current.send(
                     JSON.stringify({
                         'message' : 'RequestRevokeYoutubeConnection',
                         'AccountEmail' : UserEmail,
                         'token': body[0],
                         'tokenName' : body[1]
+                    })
+                )
+            }else if(msg == 'RequestUpdateNotification') {
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestUpdateNotification',
+                        'AccountEmail' : UserEmail,
+                        'data': body,
                     })
                 )
             }
@@ -946,7 +987,34 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
             </div>
         );
     });
-   
+    function ControlNotifications(props,data){
+        if(props == 'play'){
+            TestNotificationPlayer.current.src = `${import.meta.env.VITE_APP_API_URL}/media/notifications/${data}`
+            PlayTestNotifiactions('play')
+        }else if(props == 'approve'){
+            requestWsStream('RequestUpdateNotification',data)
+        }
+    }
+    const MapNotificationChoices = ProfileAccount.NotificationChoices.map((items, i) => {
+        // console.log(items)
+        return (
+            <div key={i} className={` flex flex-col group bg-slate-400 dark:bg-slate-700/40 hover:w-[97%] w-full transition-all duration-200 rounded-sm p-2 cursor-pointer group-hover:px-2  justify-start px-2 `}>
+                <div className="w-full flex flex-row justify-between ">
+                    <p className="text-sm py-1 text-slate-800 dark:text-slate-100">{items.label}</p>
+                </div> 
+                <div className={`flex flex-row w-full justify-end gap-6 `} >
+                    <button onClick={()=> ControlNotifications('play',items.value)} data-tip="Play"  className={` tooltip tooltip-left w-fit  h-fit bg-transparent `} >
+                        <IoPlayCircleOutline    className=" m-auto text-base cursor-pointer text-blue-600 dark:text-blue-300 hover:text-sky-700 dark:hover:text-sky-500  transition-all duration-300 "  role="button" />
+                    </button> 
+                    <button onClick={()=> ControlNotifications('approve',items.value)} data-tip="Approve"  className={` tooltip tooltip-left w-fit  h-fit bg-transparent `} >
+                        <TiTickOutline    className=" m-auto text-base cursor-pointer text-lime-800 dark:text-lime-300 hover:text-lime-500 dark:hover:text-lime-500  transition-all duration-300 "  role="button" />
+                    </button> 
+                </div>
+                
+            </div>
+        );
+    });
+  
     return (
         <div className={` h-full w-full min-w-full relative max-w-[100%] flex flex-col justify-start `} >
             {/* cover container */}
@@ -956,6 +1024,8 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                 </div>
                
             </div>
+            <audio ref={NotificationPlayer} loop={false} className=" hidden" src={`${import.meta.env.VITE_APP_API_URL}/media/notifications/${ProfileAccount.NotificationEffectName}`} controls></audio>
+            <audio ref={TestNotificationPlayer} loop={false} className=" hidden" src={null} controls></audio>
             {/*media galary displayer */}
             <div className={` ${MediaGallary.show ? 'absolute flex flex-row' : 'hidden'}  z-40 w-full h-full dark:bg-slate-800/30 bg-slate-300/30 `} >
                 <div className={` flex flex-col px-2 py-4 w-fit max-w-[95%] justify-start mx-auto mt-10 dark:bg-slate-800 bg-slate-300 bg-opacity-70 border-slate-500 dark:border-slate-500 border-[1px] dark:bg-opacity-70 h-fit max-h-[80vh]  sm:w-[90%] lg:max-w-[600px] rounded-md pt-2  `} >
@@ -1038,13 +1108,25 @@ const ProfileJSX = ({UpdateProfile,FetchUserProfile,UploadProfileFile,delete_use
                     <button onClick={() => SetAboutMeSelectedTab('Overview')} className= {` ${AboutMeSelectedTab == 'Overview' ? ' text-sky-400 dark:text-slate-200 dark:bg-opacity-60 bg-slate-700  ' : 'bg-slate-600 dark:bg-slate-800 dark:text-slate-400 text-slate-950'} w-full text-left  rounded-md transition-all hover:text-slate-200 duration-300  p-2 font-semibold hover:bg-slate-700 `} >Overview</button>
                 </div>
                 {/* selected overview tab info EDITING */}
-                <div className={`flex flex-col gap-2 text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
+                <div className={` ${IsEditingProfile == true ? 'flex flex-col' : 'hidden'} gap-2 text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
                     <p className=" text-sm pt-1 text-slate-800 dark:text-slate-100 " >Your linked youtube accounts</p>
                     <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-400/40 gap-2 py-3 px-2  transition-all duration-300  w-full rounded-sm overflow-y-auto h-fit max-h-[400px] overflow-x-hidden ml-2 justify-around`} >
                         {MapProfileYoutubeChannels}
                     </div>
+                    <p className=" text-sm pt-1 text-slate-800 dark:text-slate-100 " >Edit Your notification effect</p>
+                    <div className={` flex flex-col bg-slate-500/40 dark:bg-slate-400/40 gap-2 py-3 px-2  transition-all duration-300  w-full rounded-sm overflow-y-auto h-fit max-h-[400px] overflow-x-hidden ml-2 justify-around`} >
+                        {MapNotificationChoices}
+                    </div>
                 </div>
-                {/* selected overview tab info view */}
+                <div className={` ${IsEditingProfile == false ? 'flex flex-col' : 'hidden'} gap-2 text-slate-950  dark:text-slate-100 w-full h-fit p-2 `} >
+                    <p className={` ${ProfileYoutubeChannels.length != 0  ? 'flex flex-col' : 'hidden'} text-sm pt-1 text-slate-800 dark:text-slate-100 `} >Your linked youtube accounts</p>
+                    <div className={` ${ProfileYoutubeChannels.length != 0 ? 'flex flex-col' : 'hidden'} bg-slate-500/40 dark:bg-slate-400/40 gap-2 py-3 px-2  transition-all duration-300  w-full rounded-sm overflow-y-auto h-fit max-h-[400px] overflow-x-hidden ml-2 justify-around`} >
+                        {MapProfileYoutubeChannels}
+                    </div>
+                    <p className=" text-sm pt-1 text-slate-800 dark:text-slate-100 " >Your notification effect</p>
+                    <p className={`  text-sm pl-4 pt-1 text-slate-800 dark:text-slate-100 `} >{ProfileAccount.NotificationEffect}</p>
+                    
+                </div>                {/* selected overview tab info view */}
                 
             </div>
 

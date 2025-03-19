@@ -115,6 +115,30 @@ class Account(AbstractBaseUser,PermissionsMixin):
     ProfileRepository = models.JSONField(blank=True,null=True)
     ProfileAbout = models.JSONField(blank=True,null=True)
     YoutubeChannels = models.JSONField(blank=True,null=True)
+    # Define available notification sound options
+    NOTIFICATION_SOUND_CHOICES = [
+       ('bell-notification-933.wav', 'Bell Notification'),
+        ('bubble-pop-up-alert-notification-2357.wav', 'Bubble Pop-Up Alert'),
+        ('correct-answer-tone-2870.wav', 'Correct Answer Tone'),
+        ('gaming-lock-2848.wav', 'Gaming Lock'),
+        ('happy-bells-notification-937.wav', 'Happy Bells Notification'),
+        ('long-pop-2358.wav', 'Long Pop'),
+        ('positive-notification-951.wav', 'Positive Notification'),
+        ('sci-fi-click-900.wav', 'Sci-Fi Click'),
+        ('software-interface-back-2575.wav', 'Software Interface Back'),
+        ('software-interface-start-2574.wav', 'Software Interface Start'),
+        ('sci-fi-confirmation.wav','sci-fi-confirmation.wav')
+        # Add additional options as needed
+    ]
+    
+    # Field for notification sound selection
+    notification_sound = models.CharField(
+        max_length=50,
+        verbose_name= 'Notification effect',
+        choices=NOTIFICATION_SOUND_CHOICES,
+        default='sci-fi-confirmation.wav',  # Set a default sound if desired
+        help_text="Select preferred notification sound effect."
+    )
     groups = models.ManyToManyField(
         Group,
         related_name='useraccount_set',  # Custom related_name
@@ -130,6 +154,8 @@ class Account(AbstractBaseUser,PermissionsMixin):
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
     )
+
+
     
     
     def get_full_name(self):

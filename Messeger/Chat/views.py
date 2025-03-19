@@ -18,7 +18,7 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from .models import Account,CreationStateManager
 from .models import sanitize_string
-from .serializers import CreationStateManagerSerializer
+from .serializers import CreationStateManagerSerializer,UserSerializer
 from moviepy import AudioFileClip
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
@@ -97,7 +97,9 @@ class ProfileView(APIView):
                 accountrefGet = Account.objects.get(email = emailval)
                 creation_data = accountrefGet.state_manager.first()
                 creation_data_serialized = CreationStateManagerSerializer(creation_data,many=False)
-                profile = list(accountRef.values('id','name','email','ProfilePic','ProfileAbout','YoutubeChannels'))
+                userprofile_serialized = UserSerializer(accountrefGet,many=False)
+                
+                profile = [userprofile_serialized.data] # list(accountRef.values('id','name','email','ProfilePic','ProfileAbout','YoutubeChannels','notification_sound'))
                 
                 x = {'scope': 'ReadProfile',
                      'IsOwner' : IsOwner,
