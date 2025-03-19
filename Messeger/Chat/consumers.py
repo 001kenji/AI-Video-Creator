@@ -13,7 +13,7 @@ from .models import Account,FolderTable,FileTable
 from channels.db import database_sync_to_async
 from django.core.files.storage import default_storage
 from django.db.models import Q
-from .models import sanitize_string
+from .models import sanitize_string,CreationStateManager
 from .serializers import FolderTableSerializer,FileTableSerializer,UserAboutSerializer
 from circuitbreaker import circuit
 import google.generativeai as genai
@@ -53,7 +53,7 @@ YoutubeCustomPrompt = """
         * `tags` (array of 0-500 strings,each >= 20 and each ≤ 70 characters)
         * `categoryId` (valid YouTube category ID string like "28")
     - A `status` object with:
-        * `privacyStatus` (ONLY "public")
+        * `privacyStatus` (ONLY "private")
         * `madeForKids` (boolean) true
         * `selfDeclaredMadeForKids` true
     - A `audio` object with:
@@ -74,7 +74,7 @@ YoutubeCustomPrompt = """
         "categoryId": "27"
     },
     "status": {
-        "privacyStatus": "public",
+        "privacyStatus": "private",
         "madeForKids": false,
         "selfDeclaredMadeForKids": True
     },
@@ -108,7 +108,7 @@ YoutubeCustomPromptForAudioToVideo = """
         * `tags` (array of 0-500 strings,each >= 20 and each ≤ 70 characters)
         * `categoryId` (valid YouTube category ID string like "28")
     - A `status` object with:
-        * `privacyStatus` (ONLY "public")
+        * `privacyStatus` (ONLY "private")
         * `madeForKids` (boolean) true
         * `selfDeclaredMadeForKids` true
     - A `ImageList` (array of objects, each object should contain a custom image name and image description ):
@@ -126,7 +126,7 @@ YoutubeCustomPromptForAudioToVideo = """
         "categoryId": "27"
     },
     "status": {
-        "privacyStatus": "public",
+        "privacyStatus": "private",
         "madeForKids": false,
         "selfDeclaredMadeForKids": True
     }
@@ -166,7 +166,32 @@ def get_account_existance(email):
     accountref = Account.objects.filter(email=email)
     return accountref.exists()
 
+@sync_to_async
+def update_create_state_manager(email,PostContentContainer,data,AiPage,RequestKind):
+    accountref = Account.objects.get(email=email)
+    now = datetime.datetime.now()
+    short_date = now.strftime("%Y-%m-%dT%H:%M")
 
+    obj, created = CreationStateManager.objects.update_or_create(
+        account_email=accountref,  # Lookup field
+        defaults={
+            'PostContentContainer': PostContentContainer,
+            'dateModified': str(short_date),
+            'data': data,
+            'AiPage': AiPage,
+            'RequestKind' : RequestKind
+        }
+    )
+    return
+
+
+@sync_to_async
+def get_data_state_manager(email):
+    accountref = Account.objects.get(email=email)
+    
+    creation_data = CreationStateManager.objects.filter(account_email=accountref).values('data').first()
+
+    return creation_data
 @circuit
 def force_shutdown():
     try:
@@ -186,8 +211,6 @@ def force_shutdown():
     except PermissionError:
         print("Permission denied. Run the script as administrator/root.")
 
-
-import datetime
 async def update_file_async(new,dataval, folder_path):
     """
     Asynchronously appends the provided dataval to the file.
@@ -207,10 +230,8 @@ async def update_file_async(new,dataval, folder_path):
             await file.write(str(dataval) + "\n")
 
 
-
-
 @asyncCircuitBreaker
-async def RequestAIResponseFunc(prompt,email):
+async def RequestAIResponseFunc(prompt,email,CreationState):
     """Generate AI text content asynchronously."""
     try:
        
@@ -224,9 +245,20 @@ async def RequestAIResponseFunc(prompt,email):
         json_data = json.loads(cleaned_json_string)
         # response_json = json.loads(demodata)
         #response.text
+        
+        creation_data = await get_data_state_manager(email=email)
+        creation_data_inner_data = creation_data.get('data' , {})
+        print(creation_data,type(creation_data))
+        PostContentContainerval = CreationState.get('PostContentContainer',{})
+        AiPageval = CreationState.get('AiPage','')
+        dataval = {
+            **(creation_data_inner_data if creation_data_inner_data else {})  # Ensure it's always a dictionary
+        }
+        dataval['RequestAITTSResponseData'] = json_data
+        await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=dataval,AiPage=AiPageval,RequestKind='RequestAIResponse') 
+
         reponseval = {'type' : 'success','status' : 'success','result' : json_data}
         return reponseval
-   
     except Exception as e:
         print(e)
         responseval = {
@@ -247,6 +279,16 @@ async def RequestRequestClearServerFunc(email,Shutdown):
                 await asyncio.to_thread(shutil.rmtree, folder_path)
         except Exception as e:
             print(e)
+
+        try:
+            PostContentContainerval = None
+            AiPageval = ''
+            RequestKindval = ''
+            state_manager_dataval = None
+
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+        except Exception as e:
+            print('error occured when updating your creation state manager',e)
         # print(Shutdown)
         try:
             if Shutdown == 'True':
@@ -277,7 +319,45 @@ async def Scriptize(script, audio_file_path):
 
 
 @asyncCircuitBreaker
-async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType,send_progress):
+async def RequestClearCreationStateFunc(email):
+    """Generate AI text content asynchronously."""
+    try:
+        if not email or  email == 'null' or email == '' or email == 'gestuser@gmail.com':
+            responseval = {
+                'type': 'error',
+                'status': 'error',
+                'result': "Your request seams to be incomplite. Try again later"
+            }
+            return responseval
+        
+        accountref = await get_account_existance(email)
+        if not accountref:
+            responseval = {
+                'type': 'error',
+                'status': 'error',
+                'result': "This account does not exist.Login to proceed.❌"
+            }
+            return responseval
+        
+        
+        PostContentContainerval = None
+        AiPageval = ''
+        dataval = None
+        RequestKindval = ''
+        await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+        responseval = {'type': 'success', 'result': 'State updated'}
+        return responseval
+    except Exception as e:
+        print(e)
+        responseval = {
+            'type': 'error',
+            'status': 'error',
+            'result': "It seems there is an issue updating your state"
+        }
+        return responseval
+
+@asyncCircuitBreaker
+async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType,CreationState,send_progress):
     """Generate AI text content asynchronously."""
     try:
         if not email or not data or email == 'null' or email == '' or email == 'gestuser@gmail.com':
@@ -362,7 +442,15 @@ async def RequestTextToSpeechFunc(email,data,NumberOfImages,SocialMediaType,send
             video_type_list.append(videoType)
             audio_clip.close()            
 
-            
+        PostContentContainerval = CreationState.get('PostContentContainer',{})
+        AiPageval = CreationState.get('AiPage','')
+        dataval = {
+            'ImageList' : transcriptions,
+            'VideoTypeList':video_type_list,
+            'AudioList':audio_list,
+            'AudioNameList' :AudioNameList
+        }
+        await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=dataval,AiPage=AiPageval,RequestKind='RequestTextToSpeech') 
         responseval = {'type': 'success', 'result': 'Scripts converted successfully','ImageList' : transcriptions,'VideoTypeList':video_type_list,'AudioList':audio_list,'AudioNameList' :AudioNameList}
         return responseval
     except Exception as e:
@@ -438,7 +526,7 @@ async def generate_image_async(description, title,widthval = 1080,heightval = 19
 
 
 @asyncCircuitBreaker
-async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,VideosType,send_progress):
+async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,VideosType,CreationState,send_progress):
     """Generate AI images content asynchronously."""
     try:
         dataval = prompt
@@ -512,6 +600,20 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,Vi
             loopval += 1
             print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
+        
+        if IsRecreating == 'False':
+
+            creation_data = await get_data_state_manager(email=email)
+            creation_data_inner_data = creation_data.get('data' , {})
+            PostContentContainerval = CreationState.get('PostContentContainer',{})
+            AiPageval = CreationState.get('AiPage','')
+            RequestKindval = 'RequestCreateImages'
+            state_manager_dataval = {
+                **(creation_data_inner_data if creation_data_inner_data else {})
+            }
+            state_manager_dataval['RequestCreateImagesData'] = dataval
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+        
         responseval = {
             'type': 'success',
             'status': 'success',
@@ -523,6 +625,20 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,Vi
     
     except Exception as e:
         print(e)
+        if IsRecreating == 'False':
+
+            creation_data = await get_data_state_manager(email=email)
+            creation_data_inner_data = creation_data.get('data' , {})
+            PostContentContainerval = CreationState.get('PostContentContainer',{})
+            AiPageval = CreationState.get('AiPage','')
+            RequestKindval = 'RequestCreateImages'
+            state_manager_dataval = {
+                **(creation_data_inner_data if creation_data_inner_data else {})
+
+            }
+            state_manager_dataval['RequestCreateImagesData'] = dataval
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+        
         num = loopval #loopval - 1 if loopval > 0 else 0
         responseval = {
             'type': 'error',
@@ -535,7 +651,7 @@ async def RequestCreateImagesFunc(prompt, email, SocialMediaType,IsRecreating,Vi
         return responseval
 
 @asyncCircuitBreaker
-async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRecreating,send_progress):
+async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRecreating,CreationState,send_progress):
     """Generate AI images content asynchronously for transcripts."""
     try:
         dataval = prompt
@@ -593,6 +709,19 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRec
             videoLevel += 1
             print(f'\nRemaining loops {loopval}/{len(dataval)} objects ')
        
+        if IsRecreating == 'False':
+
+            creation_data = await get_data_state_manager(email=email)
+            creation_data_inner_data = creation_data.get('data' , {})
+            PostContentContainerval = CreationState.get('PostContentContainer',{})
+            AiPageval = CreationState.get('AiPage','')
+            RequestKindval = 'RequestCreateImagesTranscript'
+            state_manager_dataval = {
+                **(creation_data_inner_data if creation_data_inner_data else {})
+            }
+            state_manager_dataval['RequestCreateImagesTranscriptData'] = dataval
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+
         responseval = {
             'type': 'success',
             'status': 'success',
@@ -603,6 +732,19 @@ async def RequestCreateImagesTranscriptFunc(prompt, email, SocialMediaType,IsRec
         return responseval
     except Exception as e:
         print(e)
+        if IsRecreating == 'False':
+
+            creation_data = await get_data_state_manager(email=email)
+            creation_data_inner_data = creation_data.get('data' , {})
+            PostContentContainerval = CreationState.get('PostContentContainer',{})
+            AiPageval = CreationState.get('AiPage','')
+            RequestKindval = 'RequestCreateImagesTranscript'
+            state_manager_dataval = {
+                **(creation_data_inner_data if creation_data_inner_data else {})
+            }
+            state_manager_dataval['RequestCreateImagesTranscriptData'] = dataval
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+
         num =  loopval #loopval - 1 if loopval > 0 else 0
         responseval = {
             'type': 'error',
@@ -805,7 +947,7 @@ async def is_video_a_short(video_path):
 
 
 @asyncCircuitBreaker
-async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,tokenPathName,send_progress):
+async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,tokenPathName,CreationState,send_progress):
     """Upload video to YouTube with metadata"""
     try:
         
@@ -909,6 +1051,20 @@ async def RequestUploadVideosFunc(prompt, email, SocialMediaType, VideoUrl,token
             videoLevel += 1
 
         print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
+        try:
+            creation_data = await get_data_state_manager(email=email)
+            creation_data_inner_data = creation_data.get('data' , {})
+            PostContentContainerval = CreationState.get('PostContentContainer',{})
+            AiPageval = CreationState.get('AiPage','')
+            RequestKindval = 'RequestUploadVideos'
+            state_manager_dataval = {
+                **(creation_data_inner_data if creation_data_inner_data else {})
+            }
+            state_manager_dataval['RequestUploadVideosData'] = video_id_list
+            await update_create_state_manager(email=email,PostContentContainer=PostContentContainerval,data=state_manager_dataval,AiPage=AiPageval,RequestKind=RequestKindval) 
+        except Exception as e:
+            print('error occured when updating your creation state manager',e)        
+        
         return {
             'type': 'success',
             'status': 'success',
@@ -1284,12 +1440,13 @@ class AIConsumer(AsyncWebsocketConsumer):
         if(message == 'RequestAIResponse'):
                 email = sanitize_string(text_data_json['email'])
                 promptConstructed = text_data_json['prompt']
+                CreationState = text_data_json['CreationState']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
                 SocialMediaPromptSelected = YoutubeCustomPrompt
                 image_list_script = f'each objects ImageList should have {numberOfImagesPerObject} objects'
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected} {image_list_script}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_response(prompt, email))
+                task = asyncio.create_task(self.handle_request_ai_response(prompt, email,CreationState))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestAITranscriptResponse'):
@@ -1306,10 +1463,11 @@ class AIConsumer(AsyncWebsocketConsumer):
                 email = sanitize_string(text_data_json['email'])
                 promptConstructed = text_data_json['prompt']
                 numberOfImagesPerObject = sanitize_string(text_data_json['images'])
+                CreationState = text_data_json['CreationState']
                 SocialMediaPromptSelected = YoutubeCustomPromptForAudioToVideo
                 prompt = f'{promptConstructed['prompt']} {SocialMediaPromptSelected}'    
                 # Track the task
-                task = asyncio.create_task(self.handle_request_ai_tts(prompt, email))
+                task = asyncio.create_task(self.handle_request_ai_tts(prompt, email,CreationState))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImages'):
@@ -1317,30 +1475,32 @@ class AIConsumer(AsyncWebsocketConsumer):
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 VideosType = sanitize_string(text_data_json['VideosType'])
+                CreationState = text_data_json['CreationState']
                 IsRecreating = sanitize_string(text_data_json['IsRecreating'])
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,IsRecreating,VideosType))
+                task = asyncio.create_task(self.handle_request_create_images(prompt, email,SocialMediaType,IsRecreating,VideosType,CreationState))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestCreateImagesTranscript'):
                 email = sanitize_string(text_data_json['email'])
-                
+                CreationState = text_data_json['CreationState']
                 prompt = json.loads(text_data_json['prompt'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 IsRecreating = sanitize_string(text_data_json['IsRecreating'])
 
                 # Track the task
-                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,IsRecreating))
+                task = asyncio.create_task(self.handle_request_create_images_transcript(prompt, email,SocialMediaType,IsRecreating,CreationState))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestUploadVideos'):
                 email = sanitize_string(text_data_json['email'])
                 prompt = text_data_json['prompt']
                 VideoUrl = text_data_json['VideoUrl']
+                CreationState = text_data_json['CreationState']
                 tokenPathName = text_data_json['tokenPathName']
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 # Track the task
-                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,tokenPathName))
+                task = asyncio.create_task(self.handle_request_upload_videos(prompt, email,SocialMediaType,VideoUrl,tokenPathName,CreationState))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
         elif(message == 'RequestClearServer'):
@@ -1354,36 +1514,46 @@ class AIConsumer(AsyncWebsocketConsumer):
                 email = sanitize_string(text_data_json['email'])
                 SocialMediaType = sanitize_string(text_data_json['SocialMediaType'])
                 data = text_data_json['Data']
+                CreationState = text_data_json['CreationState']
                 NumberOfImages = int(sanitize_string(text_data_json['NumberOfImages']))
                 # Track the task
-                task = asyncio.create_task(self.handle_request_text_to_speech(email,data,NumberOfImages,SocialMediaType))
+                task = asyncio.create_task(self.handle_request_text_to_speech(email,data,NumberOfImages,SocialMediaType,CreationState))
+                self.tasks.add(task)
+                task.add_done_callback(self.tasks.discard)
+        elif(message == 'RequestClearCreationState'):
+                email = sanitize_string(text_data_json['email'])
+                # Track the task
+                task = asyncio.create_task(self.handle_request_clear_creat_state(email))
                 self.tasks.add(task)
                 task.add_done_callback(self.tasks.discard)
 
-    async def handle_request_ai_response(self, prompt, email):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email)
+    async def handle_request_ai_response(self, prompt, email,CreationState):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,CreationState=CreationState)
         await self.send_msg(data=val, type='RequestAIResponse')
     async def handle_request_ai_transcript_response(self, prompt, email):
         val = await RequestAIResponseFunc(prompt=prompt, email=email)
         await self.send_msg(data=val, type='RequestAITranscriptResponse')
-    async def handle_request_ai_tts(self, prompt, email):
-        val = await RequestAIResponseFunc(prompt=prompt, email=email)
+    async def handle_request_ai_tts(self, prompt, email,CreationState):
+        val = await RequestAIResponseFunc(prompt=prompt, email=email,CreationState=CreationState)
         await self.send_msg(data=val, type='RequestAITTSResponse')
     async def handle_request_clear_server(self, email,Shutdown):
         val = await RequestRequestClearServerFunc(email=email,Shutdown=Shutdown)
         await self.send_msg(data=val, type='RequestClearServer')
-    async def handle_request_text_to_speech(self, email,data,NumberOfImages,SocialMediaType):
-        val = await RequestTextToSpeechFunc(email=email,data=data,NumberOfImages=NumberOfImages,SocialMediaType=SocialMediaType,send_progress = self.send_msg)
+    async def handle_request_text_to_speech(self, email,data,NumberOfImages,SocialMediaType,CreationState):
+        val = await RequestTextToSpeechFunc(email=email,data=data,NumberOfImages=NumberOfImages,SocialMediaType=SocialMediaType,CreationState=CreationState,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestTextToSpeech')
-    async def handle_request_create_images(self, prompt, email,SocialMediaType,IsRecreating,VideosType):
-        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,VideosType=VideosType,send_progress = self.send_msg)
+    async def handle_request_create_images(self, prompt, email,SocialMediaType,IsRecreating,VideosType,CreationState):
+        val = await RequestCreateImagesFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,VideosType=VideosType,CreationState=CreationState,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestCreateImages')
-    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,IsRecreating):
-        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,send_progress = self.send_msg)
+    async def handle_request_create_images_transcript(self, prompt, email,SocialMediaType,IsRecreating,CreationState):
+        val = await RequestCreateImagesTranscriptFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,IsRecreating=IsRecreating,CreationState=CreationState,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestCreateImagesTranscript')
-    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,tokenPathName):
-        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,tokenPathName=tokenPathName,send_progress = self.send_msg)
+    async def handle_request_upload_videos(self, prompt, email,SocialMediaType,VideoUrl,tokenPathName,CreationState):
+        val = await RequestUploadVideosFunc(prompt=prompt, email=email,SocialMediaType=SocialMediaType,VideoUrl=VideoUrl,tokenPathName=tokenPathName,CreationState=CreationState,send_progress = self.send_msg)
         await self.send_msg(data=val, type='RequestUploadVideos')
+    async def handle_request_clear_creat_state(self, email):
+        val = await RequestClearCreationStateFunc(email=email)
+        await self.send_msg(data=val, type='RequestClearCreationState')
     
 
 

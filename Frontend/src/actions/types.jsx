@@ -36,6 +36,7 @@ export const ProfileAccountReducer = 'ProfileAccountReducer'
 export const SelectedPageReducer = 'SelectedPageReducer'
 
 // AI types
+export const CreationStateReducer = 'CreationStateReducer'
 export const AiVideoMergeUrlReducer = 'AiVideoMergeUrlReducer'
 export const AudioToVideoTranscriptionReducer = 'AudioToVideoTranscriptionReducer'
 export const FullAudioToVideoTranscriptionReducer = 'FullAudioToVideoTranscriptionReducer'

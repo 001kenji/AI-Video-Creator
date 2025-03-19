@@ -145,6 +145,27 @@ class Account(AbstractBaseUser,PermissionsMixin):
     REQUIRED_FIELDS = ['name']
 # this is for creating a balcklist method
 
+class CreationStateManager(models.Model):
+    id = models.CharField(
+        primary_key=True,
+        default=uuid.uuid4,  # Use the custom generator
+        editable=False,
+    )
+    PostContentContainer = models.JSONField(blank=True,null=True)
+    dateModified = models.CharField(max_length=60,blank=True,null=True)
+    data = models.JSONField(blank=True,null=True)    
+    AiPage = models.CharField(max_length=60,blank=True,null=True)
+    RequestKind = models.CharField(max_length=60,blank=True,null=True)
+    # Foreign key to Account model using the email field
+    account_email = models.ForeignKey(
+        Account,  # Refers to the custom user model (Account)
+        to_field='email',          # Specifies that the foreign key references the email field
+        on_delete=models.CASCADE,  # Deletes comment when the related Account is deleted
+        related_name='state_manager'    # Allows reverse lookup from Account to PostComment
+    )
+    def __str__(self):
+        return f'{self.account_email} ※ CreateState'
+
 
 class BlacklistableToken(Token):
     def blacklist(self):

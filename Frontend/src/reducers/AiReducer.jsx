@@ -12,11 +12,13 @@ import {
     UploadAudioToVideoThrottledBodyReducer,
     MergeAudioToVideoThrottledReducer,
     MergeAudioToVideoRetryBodyReducer,
-    UploadAudioToVideoAudiosBodyReducer
+    UploadAudioToVideoAudiosBodyReducer,
+    CreationStateReducer
     
 }from '../actions/types'
 
 const initialState = {
+    CreationState : {},
     AiVideoMergeUrl : [],
     AudioToVideoTranscription : [],
     FullAudioToVideoTranscription : [],
@@ -36,7 +38,11 @@ export default function (state = initialState, action) {
     
         //console.log('fired')
     switch (type) {
-        
+        case CreationStateReducer:
+            return {
+                ...state,
+                CreationState : payload
+            }
         case AiVideoMergeUrlReducer:
             return {
                 ...state,

@@ -15,6 +15,7 @@ import { IoChevronUpOutline, IoChevronDownOutline } from "react-icons/io5";
 import { LuCornerUpRight, LuGithub } from "react-icons/lu";
 import { lineNumbers } from "@codemirror/view";
 import { connect, useDispatch } from "react-redux";
+import { LuArchiveRestore } from "react-icons/lu";
 import {useSelector} from 'react-redux'
 import { IoTrashOutline } from "react-icons/io5";
 import "react-quill/dist/quill.snow.css";
@@ -30,7 +31,7 @@ import ProfileTestImg from '../assets/images/fallback.jpeg'
 import { useParams } from "react-router-dom";
 
 import NotificationAudio from '../assets/audio/notification.wav'
-import { AiVideoMergeUrlReducer, ProfileYoutubeChannelsReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
+import { AiVideoMergeUrlReducer, CreationStateReducer, ProfileYoutubeChannelsReducer, ProgressInformationReducer, RetryNumberOfRequestMadeReducer, RetryRequestScopeReducer, RetryRequestThrottledReducer } from "../actions/types";
 // using argon2 pashing for both javascript and py
 //const argon2 = require('argon2');
 const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,UploadAudioToVideoAudios,PromptMergeAudioToVideo}) => {
@@ -71,6 +72,14 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'type' : '',
         'src' : '',
         'show' : false,
+    })
+    const CreationState = useSelector((state) => state.AiReducer.CreationState)
+    const [CreationStateControllContainer,SetCreationStateControllContainer] = useState({
+        'UserChoice' : 'pending',
+        'Show' : false,
+        'AIPage' : 'AI page',
+        'ProgressLevel' : '',
+        'DataLength' : 0
     })
     const AiVoiceRef = useRef(null)
     const AiAudioToVoiceRef = useRef(null)
@@ -131,7 +140,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
         'Number' : 0
     })
 
-    const [AiPageSelected,SetAiPageSelected] = useState('VoiceToVideo')  //VoiceToVideo //ImageToVideo
+    const [AiPageSelected,SetAiPageSelected] = useState('ImageToVideo')  //VoiceToVideo //ImageToVideo
     const SocialMediaNumberVideosOptions = [
         { value: "1", label: "1 video",name : 'SocialMediaNumberVideosOptions' },
         { value: "2", label: "2 videos",name : 'SocialMediaNumberVideosOptions' },
@@ -558,6 +567,20 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             }, 3000);
         }
     },[TriggerDoNotDisturb])
+
+    
+    useEffect(()=> {
+        // console.log(Object.keys(CreationState).length,CreationState)
+        if(Object.keys(CreationState).length != 0){
+            if(CreationState.data == null){
+                return
+            }
+            ToongleCreationStateControllContainer('show')
+                     
+        }
+        
+    },[CreationState])
+
     const customTagSelectorTheme = (theme, mode = "light") => ({
         ...theme,
         colors: {
@@ -569,6 +592,65 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             neutral80: mode == "dark" ? "#ddd" : "#444", // Placeholder color
         },
     });
+
+    function CreationStateRestorer(props ){
+        if (props != null){
+            var RequestKindval = CreationState.RequestKind ? CreationState.RequestKind : ''
+            var AiPageval = CreationState.AiPage == '' || CreationState.AiPage == null ? AiPageSelected : CreationState.AiPage
+            SetAiPageSelected(AiPageval)
+            if(RequestKindval == 'RequestTextToSpeech'){
+                console.log('restoring : ',RequestKindval)
+                ToongleFirstStepLeveAudioToVideo('RestoreRequestTextToSpeech')
+            }else if(RequestKindval == 'RequestAIResponse'){
+                ToongleFirstStepLeveAudioToVideo('RestoreRequestAIResponse')
+            }else if(RequestKindval == 'RequestCreateImages'){
+                ToongleSecondProgressLevel('RestoreRequestCreateImages')
+            }else if(RequestKindval == 'RequestCreateImagesTranscript'){
+                ToongleSecondProgressLevel('RestoreRequestCreateImagesTranscript')
+            }else if(RequestKindval == 'MergeView'){
+                ToongleSecondProgressLevel('RestoreMergeView')
+            }else if(RequestKindval == 'MergeAudioToVideo'){
+                ToongleSecondProgressLevel('RestoreMergeAudioToVideo')
+            }else if(RequestKindval == 'RequestUploadVideos'){
+                ToongleThirdProgressLevel('RestoreRequestUploadVideos')
+            }
+        }
+    }
+
+    const ToongleCreationStateControllContainer =(props) => {
+        if(props == 'show'){
+            SetCreationStateControllContainer((e)=> {
+                return {
+                    ...e,
+                    'Show' : true,
+                    'AIPage' : CreationState.AiPage ? CreationState.AiPage : 'AI page',
+                    'ProgressLevel' : CreationState.PostContentContainer ? CreationState.PostContentContainer.progressLevel : '',
+                    'DataLength' : CreationState.data ? Object.entries(CreationState.data).length : 0,
+                    'UserChoice' : 'pending'
+                }
+            })
+        }else if(props == 'restore'){
+            // console.log('restoring')
+            SetCreationStateControllContainer((e)=> {
+                return {
+                    ...e,
+                    'Show' : false,
+                    'UserChoice' : 'restore'
+                }
+            })
+            CreationStateRestorer('restore')
+        }else if(props == 'dismiss'){
+            SetCreationStateControllContainer((e)=> {
+                return {
+                    ...e,
+                    'Show' : false,
+                    'UserChoice' : 'cleared'
+                }
+            })
+            requestWsStream('RequestClearCreationState')
+        }
+    }
+
 
     const customStyles = (mode) => ({
         control: (base) => ({
@@ -836,6 +918,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : true
                 }
             })
+            var stateData = {
+                AiPage : AiPageSelected,
+                PostContentContainer: {
+                        'FirstStepLevel' : PostContentPage.FirstStepLevel,
+                        'SecondStepLevel' : 2,
+                        'ThirdStepLevel' : 1,
+                        'progressLevel' : 2
+                    }
+            }
             const formData = new FormData()
             if(PostContentContainer.AudioUploadScope == 'AudioUpload'){
                 if(PostContentContainer.VideoAudioModeSelectedOptions == 'OneForAll'){
@@ -859,6 +950,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
             formData.append('NumberOfRequestRetry',0)
+            formData.append('CreationState',JSON.stringify(stateData))
             formData.append('VideosType',PostContentContainer.SocialMediaVideosTypeOptions[0].value)
             dispatch({
                 type :ProgressInformationReducer,
@@ -876,11 +968,21 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                     'LoadingVideoList' : true
                 }
             })
+            var stateData = {
+                AiPage : AiPageSelected,
+                PostContentContainer: {
+                        'FirstStepLevel' : PostContentPage.FirstStepLevel,
+                        'SecondStepLevel' : 2,
+                        'ThirdStepLevel' : 1,
+                        'progressLevel' : 2
+                    }
+            }
             const formData = new FormData()
             formData.append('data',JSON.stringify(PostContentContainer.VideoListDetailsWithImages))
             formData.append('email',UserEmail)
             formData.append('SocialMediaType',PostContentContainer.SelectedSocialMediaType)
             formData.append('NumberOfRequestRetry',0)
+            formData.append('CreationState',JSON.stringify(stateData))
             dispatch({
                 type :ProgressInformationReducer,
                 payload : 'Merging data to video(s). Once created they will be saved'
@@ -953,6 +1055,85 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
             var bodyToPass = JSON.stringify(ImageRecreationContainer.FailedVideoListDetailsWithImages , null, 2);
             requestWsStream('RequestCreateImagesTranscript',bodyToPass,true)
+        }else if(props == 'RestoreRequestCreateImagesTranscript'){
+            if(!CreationState.data.RequestCreateImagesTranscriptData){
+                return
+            }
+            var dataval = CreationState.data.RequestCreateImagesTranscriptData
+            
+            SetPostContentContainer((e) => {
+                return {
+                    ...e,
+                    'VideoListDetailsWithImages' : dataval,
+                    'LoadingVideoList' : false,
+                    'SecondStepLevel' : 2,
+                    'progressLevel' : 2,
+                }
+            })
+            SetImageRecreationContainer((e) => {
+                return {
+                    ...e,
+                    'FailedVideoListDetailsWithImages' :[],
+                    'RecreatedVideoListDetailsWithImages' : [],
+                    'ShowRecreatedImages' : false
+                }
+            })
+                
+        }else if(props == 'RestoreMergeView'){
+            if(CreationState.data.MergeViewData){
+                if (CreationState.data.MergeViewData.length != 0){
+                    SetDoNotDisturbContainer((e) => {
+                        return {
+                            ...e,
+                            'isChecked' : false,
+                        }
+                    })
+                    dispatch({
+                        type : AiVideoMergeUrlReducer,
+                        payload : CreationState.data.MergeViewData
+                    })
+                }
+            }
+            
+        }else if(props == 'RestoreMergeAudioToVideo'){
+            if(CreationState.data.MergeAudioToVideoData){
+                if (CreationState.data.MergeAudioToVideoData.length != 0){
+                    SetDoNotDisturbContainer((e) => {
+                        return {
+                            ...e,
+                            'isChecked' : false,
+                        }
+                    })
+                    dispatch({
+                        type : AiVideoMergeUrlReducer,
+                        payload : CreationState.data.MergeAudioToVideoData
+                    })
+                }
+            }
+            
+        }else if(props == 'RestoreRequestCreateImages'){
+            if(!CreationState.data.RequestCreateImagesData){
+                return
+            }
+            var dataval = CreationState.data.RequestCreateImagesData
+            SetPostContentContainer((e) => {
+                return {
+                    ...e,
+                    'VideoListDetailsWithImages' : dataval,
+                    'LoadingVideoList' : false,
+                    'SecondStepLevel' : 2,
+                    'progressLevel' : 2,
+                }
+            })
+            SetImageRecreationContainer((e) => {
+                return {
+                    ...e,
+                    'FailedVideoListDetailsWithImages' : [],
+                    'RecreatedVideoListDetailsWithImages' : [],
+                    'ShowRecreatedImages' : false
+                }
+            })
+           
         }
      
     }
@@ -1648,15 +1829,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         })
                         ShowToast(val['type'],val['result'])
                     }
-                    if(db != null){
-                        var data = {
-                            'scope' : 'ReadProfile',
-                            'AccountEmail' : UserEmail,
-                            'AccountID' : extrainfo,
-                            'IsOwner' : true,
-                        }
-                        FetchUserProfile(JSON.stringify([data]))
-                    }  
+                    
                 }else {
                     SetPostContentContainer((e) => {
                         return {
@@ -1678,6 +1851,13 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'Scope' : '',
                         'Number' : num + 1
                     }
+                })
+            }else if(data.type == 'RequestClearCreationState'){
+                var val = data.message
+                console.log('state cleared')
+                dispatch({
+                    type : CreationStateReducer,
+                    payload : {}
                 })
             }else if(data.type == 'RequestTextToSpeech'){
                 var val = data.message
@@ -1819,6 +1999,15 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
           
         }
         if(WsDataStream.current.readyState === WsDataStream.current.OPEN){
+            var stateData = {
+                'AiPage' : AiPageSelected,
+                'PostContentContainer': {
+                        'FirstStepLevel' : PostContentContainer.FirstStepLevel,
+                        'SecondStepLevel' : PostContentContainer.SecondStepLevel,
+                        'ThirdStepLevel' : PostContentContainer.ThirdStepLevel,
+                        'progressLevel' : PostContentContainer.progressLevel,
+                    }
+            }
             if(msg == 'RequestAIResponse') {
                 
                 WsDataStream.current.send(
@@ -1827,6 +2016,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'email' : UserEmail,
                         'prompt' : body,
                         'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'CreationState' : stateData
                     })
                 )
             }else if(msg == 'RequestAITranscriptResponse') {
@@ -1847,6 +2037,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'email' : UserEmail,
                         'prompt' : body,
                         'images' : PostContentContainer.SocialMediaNumberImagesOptions[0].value,
+                        'CreationState' : stateData
                     })
                 )
             }else if(msg == 'RequestCreateImages') {
@@ -1858,7 +2049,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'prompt' : body, //PostContentContainer.VideoListDetails,
                         'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
                         'VideosType' : PostContentContainer.SocialMediaVideosTypeOptions[0].value,
-                        'IsRecreating' : additionalInfo
+                        'IsRecreating' : additionalInfo,
+                        'CreationState' : stateData
                     })
                 )
             }else if(msg == 'RequestCreateImagesTranscript') {
@@ -1869,7 +2061,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'email' : UserEmail,
                         'prompt' : body,
                         'SocialMediaType' : PostContentContainer.SelectedSocialMediaType,
-                        'IsRecreating' : additionalInfo
+                        'IsRecreating' : additionalInfo,
+                        'CreationState' : stateData
                     })
                 )
             }else if(msg == 'RequestUploadVideos') {
@@ -1881,7 +2074,8 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'prompt' : PostContentContainer.VideoListDetailsWithImages,
                         'VideoUrl' : AiVideoMergeUrl,
                         'SocialMediaType' : body,
-                        'tokenPathName' : SelectedtokenPathName
+                        'tokenPathName' : SelectedtokenPathName,
+                        'CreationState' : stateData
                     })
                 )
             }else if(msg == 'RequestClearServer') {
@@ -1901,7 +2095,16 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                         'email' : UserEmail,
                         'Data' : AudioToVideoContainer.Scripts,
                         'NumberOfImages':PostContentContainer.SocialMediaNumberImagesOptions[0].value,
-                        'SocialMediaType':PostContentContainer.SelectedSocialMediaType
+                        'SocialMediaType':PostContentContainer.SelectedSocialMediaType,
+                        'CreationState' : stateData
+                    })
+                )
+            }else if(msg == 'RequestClearCreationState') {
+                
+                WsDataStream.current.send(
+                    JSON.stringify({
+                        'message' : 'RequestClearCreationState',
+                        'email' : UserEmail
                     })
                 )
             }
@@ -2032,6 +2235,23 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
                 
             }
             
+        }else if(props == 'RestoreRequestUploadVideos'){
+            if(CreationState.data.RequestUploadVideosData){
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        'ThirdStepLevel' : 2,
+                        'progressLevel' : 3,
+                        'LoadingVideoList' : false,
+                        'UploadedVideoId' : CreationState.data.RequestUploadVideosData
+                    }
+                })
+            
+                dispatch({
+                    type : AiVideoMergeUrlReducer,
+                    payload : []
+                })
+            }
         }
     }
     const handleSocialMediaOptionsChange = (selected,val) => {
@@ -2469,6 +2689,82 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             })
             //console.log('transcribing now')
             requestWsStream('RequestAITTSResponse',promptConstructed)
+        }else if(props == 'RestoreRequestTextToSpeech'){
+            // console.log('running dnd')
+            var val = CreationState.data
+            SetPostContentContainer((e) => {
+                return {
+                    ...e,
+                    'LoadingVideoList' : false,
+                    'FirstStepLevel' : 1,
+                    'progressLevel' : 1,
+                }
+            })
+            SetAudioToVideoContainer((e) => {
+                return {
+                    ...e,
+                    'TextToSpeechScope' : 'Previewing',
+                    'AudioNameList' : val['AudioNameList'],
+                    'ImageList' : val['ImageList'],
+                    'VideoTypeList' : val['VideoTypeList'],
+                    'TextToSpeechAudioList' : val['AudioList'],
+                    'Scope' : 'TextToSpeech'
+                }
+            })
+            
+        }else if(props == 'RestoreRequestAIResponse'){
+            if(!CreationState.data.RequestAITTSResponseData){
+                return
+            }
+            if(CreationState.AiPage == 'VoiceToVideo'){
+                var Listval = CreationState.data.RequestAITTSResponseData
+                if(Listval.length != CreationState.data.ImageList.length){
+                        SetPostContentContainer((e) => {
+                            return {
+                                ...e,
+                                'LoadingVideoList' : false,
+                                'FirstStepLevel' : 1,
+                                'progressLevel' : 1,
+                            }
+                        })
+                        console.log('mismatch',Listval,CreationState.data.ImageList)
+                        ShowToast('warning',"Seams there is no cosistensy between transcripts and videos that were restored")
+                        return
+                }
+                for (let i = 0; i < Listval.length; i++) {
+                    Listval[i]['ImageList'] = CreationState.data.ImageList[i]
+                    Listval[i]['audio'] = CreationState.data.AudioNameList[i]
+                    Listval[i]['videoType'] = CreationState.data.VideoTypeList[i] ? CreationState.data.VideoTypeList[i] : 'shorts'
+                }
+                var videoList = JSON.stringify(Listval , null, 2);
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        'VideoListDetails' : videoList,
+                        'LoadingVideoList' : false,
+                        'FirstStepLevel' : 2,
+                        'progressLevel' : 1,
+                    }
+                })  
+            }else if(CreationState.AiPage == 'ImageToVideo'){
+                var Listval = CreationState.data.RequestAITTSResponseData
+                var videoList = JSON.stringify(Listval , null, 2);
+                SetPostContentContainer((e) => {
+                    return {
+                        ...e,
+                        'VideoListDetails' : videoList,
+                        'LoadingVideoList' : false,
+                        'FirstStepLevel' : 2,
+                        'progressLevel' : 1,
+                    }
+                })
+                dispatch({
+                    type :ProgressInformationReducer,
+                    payload : ''
+                })
+                    
+            }
+                          
         }
     }
 
@@ -2582,8 +2878,7 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
             : items.videoType;
         
         return (
-          <div
-            key={i}
+          <div key={i}
             className="flex flex-row gap-0 w-fit min-w-fit h-full min-h-full bg-transparent transition-all duration-300 overflow-hidden"
           >
             <div className="flex flex-col gap-0 w-full h-full  bg-transparent justify-start overflow-hidden">
@@ -2898,6 +3193,28 @@ const PostContentPage = ({isAuthenticated,PromptMergeVideos,FetchUserProfile,Upl
 
             <section className={`  md:w-full  justify-between flex flex-col relative overflow-x-hidden overflow-y-visible w-full rounded-sm  md:mx-auto bg-transparent dark:text-slate-100 m-auto   h-full`}>
                 <small className=" text-slate-600 dark:text-slate-500 text-center" >It just takes three steps</small>
+                {/* user state manager controller container */}
+                <div className={` ${CreationStateControllContainer.Show == true ?'flex flex-col' : 'hidden'} gap-2 cursor-not-allowed  z-50 absolute bg-slate-100/60 dark:bg-slate-800/60 mx-auto rounded-md w-full h-full min-h-full p-2 `} >
+                    <div className={` flex flex-col gap-2 mx-auto bg-sky-600 rounded-md w-[90%]  max-w-[600px] p-2 `} >
+                        <div className="flex flex-row w-full justify-start " >
+                           <LuArchiveRestore className=" w-5 h-5 my-auto text-amber-300 " /> 
+                           <big className=" font-sans text-2xl mx-auto " >State Restoration</big>
+
+                        </div>
+                        
+                        <p className=" text-sm py-1 text-black dark:text-slate-100 " >Previous content creation state has been detected. Would you like to restore the state</p>
+                        <p className=" text-sm py-1 text-black dark:text-slate-100 " >Data detected:</p>
+                        <div className="flex flex-row w-full justify-around flex-wrap " >
+                            <p className={`text-black  dark:text-white shadow-slate-500 bg-white/50 dark:bg-black/50 dark:shadow-slate-500 px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>{CreationStateControllContainer.AIPage}</p>
+                            <p className={`text-black  dark:text-white shadow-slate-500 bg-white/50 dark:bg-black/50 dark:shadow-slate-500 px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Progress level {CreationStateControllContainer.ProgressLevel}</p>
+                            <p className={`text-black  dark:text-white shadow-slate-500 bg-white/50 dark:bg-black/50 dark:shadow-slate-500 px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Found {CreationStateControllContainer.DataLength} data stacks</p>
+                        </div>
+                        <div className=" flex flex-row flex-wrap gap-2 w-[90%] max-w-[600px] mx-auto justify-around">
+                            <button  onClick={() => ToongleCreationStateControllContainer('dismiss')} className={`  py-2 cursor-pointer  disabled:cursor-not-allowed px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-red-500/70 dark:bg-red-600/50 transition-all duration-300 shadow-slate-600/90 dark:shadow-gray-400/90 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white`}>Dismiss</button>
+                            <button  onClick={() => ToongleCreationStateControllContainer('restore')} className={` py-2 cursor-pointer  disabled:cursor-not-allowed px-3 min-w-[80px] disabled:shadow-transparent mx-auto mb-auto text-sm text-gray-900 rounded-md bg-lime-500/70 dark:bg-lime-600/100 transition-all duration-300 shadow-blue-600/90 dark:shadow-blue-500 border-opacity-80 hover:border-opacity-100 shadow-xs hover:py-3 dark:text-white `}>Restore</button>
+                        </div>
+                    </div>
+                </div>
                 {/* changing <image/audio> to voice container */}
                 <div className=" w-full min-w-full overflow-y-auto  h-fit min-h-fit flex flex-row bg-transparent justify-start gap-4 px-3 " >
                     <p onClick={()=> ToongleAiPageSelected('ImageToVideo')} className={` ${AiPageSelected == 'ImageToVideo' ? ' dark:text-lime-600 text-sky-600 shadow-sky-800 dark:shadow-lime-700 ' : 'text-slate-700  dark:text-slate-100 shadow-slate-500 dark:shadow-slate-500'} px-4 py-2 my-3 rounded-2xl text-sm text-center shadow-[0px_0px_8px_1px_rgba(0,0,0,0.25)]  hover:shadow-slate-900  transition-all duration-300 hover:dark:shadow-slate-400 cursor-pointer w-fit min-w-fit `}>Image to video</p>

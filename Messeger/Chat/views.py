@@ -16,8 +16,9 @@ from asgiref.sync import async_to_sync
 from circuitbreaker import circuit
 from django.conf import settings
 from django.core.files.storage import FileSystemStorage
-from .models import Account
+from .models import Account,CreationStateManager
 from .models import sanitize_string
+from .serializers import CreationStateManagerSerializer
 from moviepy import AudioFileClip
 from django.middleware.csrf import get_token
 from django.http import JsonResponse
@@ -92,10 +93,15 @@ class ProfileView(APIView):
             if Scope == 'ReadProfile' : 
                 emailval = sanitize_string(data['AccountEmail'])
                 IsOwner = sanitize_string(data['IsOwner'])
-                profile = list(Account.objects.filter(email= emailval).values('id','name','email','ProfilePic','ProfileAbout','YoutubeChannels'))
+                accountRef = Account.objects.filter(email= emailval)
+                accountrefGet = Account.objects.get(email = emailval)
+                creation_data = accountrefGet.state_manager.first()
+                creation_data_serialized = CreationStateManagerSerializer(creation_data,many=False)
+                profile = list(accountRef.values('id','name','email','ProfilePic','ProfileAbout','YoutubeChannels'))
                 
                 x = {'scope': 'ReadProfile',
                      'IsOwner' : IsOwner,
+                     'CreationState' : creation_data_serialized.data
                      }
                 profile.insert(0,x)
 
@@ -330,6 +336,7 @@ class MergeView(APIView):
             dataval = json.loads(data['data'])
             AudioScope = data['AudioScope']
             SocialMediaType = sanitize_string(data['SocialMediaType'])
+            CreationStateval = json.loads(data['CreationState'])
             VideosType = sanitize_string(data['VideosType'])
             folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
             
@@ -531,13 +538,44 @@ class MergeView(APIView):
                     print('\nconfigs: ',image_url_thumbnail_val, thumbnail_path)
                     create_thumbnail(image_url_thumbnail_val, thumbnail_path)
                 
+                
                 response_url.append(f'{emailval}/{SocialMediaType}/{custom_videos_name}_with_audio.mp4')
                 position += 1
+                
                 print('\n\n\n ✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅')
-                return Response({
-                    'success' : 'Your video is successfuly created',
-                    "video_url": response_url
-                }, status=200)
+
+            try:
+                accountref = Account.objects.get(email=emailval)
+                creation_data = CreationStateManager.objects.filter(account_email=accountref).values('data').first()
+                creation_data_inner_data = creation_data.get('data' , {})
+                PostContentContainerval = CreationStateval.get('PostContentContainer',{})
+                AiPageval = CreationStateval.get('AiPage','')
+                RequestKindval = 'MergeView'
+                state_manager_dataval = {
+                    **(creation_data_inner_data if creation_data_inner_data else {})
+                }
+                state_manager_dataval['MergeViewData'] = response_url
+                now = datetime.datetime.now()
+                short_date = now.strftime("%Y-%m-%dT%H:%M")
+
+                CreationStateManager.objects.update_or_create(
+                    account_email=accountref,  # Lookup field
+                    defaults={
+                        'PostContentContainer': PostContentContainerval,
+                        'dateModified': str(short_date),
+                        'data': state_manager_dataval,
+                        'AiPage': AiPageval,
+                        'RequestKind' : RequestKindval
+                    }
+                )
+            except Exception as e:
+                print('error occured when updating your creation state manager',e)    
+
+
+            return Response({
+                'success' : 'Your video is successfuly created',
+                "video_url": response_url
+            }, status=200)
             
 
         except RetryCustomError as e:
@@ -569,6 +607,7 @@ class MergeAudioToVideoView(APIView):
 
                 emailval = sanitize_string(data['email'])
                 dataval = json.loads(data['data'])
+                CreationStateval = json.loads(data['CreationState'])
                 SocialMediaType = sanitize_string(data['SocialMediaType'])
                 folder_path = os.path.join(settings.MEDIA_ROOT, emailval,SocialMediaType)
                 
@@ -697,6 +736,34 @@ class MergeAudioToVideoView(APIView):
                     yield json.dumps({"progress": f"Completed {position} video over {len(dataval)}"}) + "\n"
                     yield " " * 4096  + "\n"
                 
+                try:
+                    accountref = Account.objects.get(email=emailval)
+                    creation_data = CreationStateManager.objects.filter(account_email=accountref).values('data').first()
+                    creation_data_inner_data = creation_data.get('data' , {})
+                    PostContentContainerval = CreationStateval.get('PostContentContainer',{})
+                    AiPageval = CreationStateval.get('AiPage','')
+                    RequestKindval = 'MergeAudioToVideo'
+                    state_manager_dataval = {
+                        **(creation_data_inner_data if creation_data_inner_data else {})
+                    }
+                    state_manager_dataval['MergeAudioToVideoData'] = response_url
+                    now = datetime.datetime.now()
+                    short_date = now.strftime("%Y-%m-%dT%H:%M")
+
+                    CreationStateManager.objects.update_or_create(
+                        account_email=accountref,  # Lookup field
+                        defaults={
+                            'PostContentContainer': PostContentContainerval,
+                            'dateModified': str(short_date),
+                            'data': state_manager_dataval,
+                            'AiPage': AiPageval,
+                            'RequestKind' : RequestKindval
+                        }
+                    )
+                except Exception as e:
+                    print('error occured when updating your creation state manager',e)
+
+
                 final_response = {
                     'success': 'Your video is successfuly created',
                     "video_url": response_url

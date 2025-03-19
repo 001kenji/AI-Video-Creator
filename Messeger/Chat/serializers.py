@@ -2,7 +2,7 @@ from djoser.serializers import UserCreateSerializer, ActivationSerializer
 from django.contrib.auth import get_user_model
 
 from rest_framework import serializers
-from .models import AccountManager,FolderTable,FileTable
+from .models import AccountManager,FolderTable,FileTable,CreationStateManager
 User = get_user_model()
 import datetime
 
@@ -49,3 +49,9 @@ class FileTableSerializer(serializers.ModelSerializer):
     class Meta:
         model = FileTable
         fields = ['id','name','dateCreated','size','fileUrl','type']
+
+class CreationStateManagerSerializer(serializers.ModelSerializer):
+    #id = serializers.UUIDField(format='hex')  # Converts UUID to a string
+    class Meta:
+        model = CreationStateManager
+        fields = ['PostContentContainer','dateModified','data','AiPage','RequestKind']

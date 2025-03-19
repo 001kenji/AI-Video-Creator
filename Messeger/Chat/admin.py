@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django import forms
-from .models import Account,AccountManager
+from .models import Account,AccountManager,CreationStateManager
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 from django.contrib.auth import logout
@@ -136,8 +136,11 @@ class UserAccountAdmin (admin.ModelAdmin):
     readonly_fields=('id',)
     
 
-
+class CreationStateManagerAdmin (admin.ModelAdmin):
+    # list_display = [field.name for field in CreationStateManager._meta.fields]
+    pass
 
 admin.site.unregister(Group)
 admin.site.register(Account, UserAccountAdmin)
+admin.site.register(CreationStateManager, CreationStateManagerAdmin)
 

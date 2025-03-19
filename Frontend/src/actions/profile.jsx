@@ -5,7 +5,8 @@ import {
     FileListReducer,
     ProfileAccountReducer,
     ProfileAboutReducer,
-    ProfileYoutubeChannelsReducer
+    ProfileYoutubeChannelsReducer,
+    CreationStateReducer
 } from './types'
 import Cookies from 'js-cookie'
 import { useSelector } from 'react-redux'
@@ -109,6 +110,10 @@ export const FetchUserProfile = (props) => async dispatch => {
             dispatch({
                 type : ProfileAccountReducer,
                 payload : userdata
+            })  
+            dispatch({
+                type : CreationStateReducer,
+                payload : val[0]['CreationState']
             })           
             
         }else if (data.success) {
